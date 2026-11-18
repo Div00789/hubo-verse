@@ -67,7 +67,7 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
       setExecution((prev) => ({
         ...prev,
         status: 'SUCCESS',
-        approvedByUserId: 'usr_sarah_cto',
+        approvedByUserId: 'usr_org_admin',
         executionResult: {
           hubspotObjectId: 'hs_prop_8921829',
           details: `Successfully deployed property into HubSpot Portal #${DEMO_HUBSPOT_CONNECTION.portalId}. Schema index updated.`,
@@ -148,11 +148,10 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
             </div>
           </div>
 
-          <div className={`bg-[#0F172A] border rounded-xl p-3 flex items-center gap-3 ${
-            execution.status === 'AWAITING_APPROVAL' || execution.status === 'EXECUTING' || execution.status === 'SUCCESS'
+          <div className={`bg-[#0F172A] border rounded-xl p-3 flex items-center gap-3 ${execution.status === 'AWAITING_APPROVAL' || execution.status === 'EXECUTING' || execution.status === 'SUCCESS'
               ? 'border-[#FF5C00]/40'
               : 'border-[#1E293B]'
-          }`}>
+            }`}>
             <FileCode className="w-5 h-5 text-[#FF5C00] shrink-0" />
             <div>
               <div className="text-[10px] text-gray-400 uppercase font-mono">Stage 3</div>
@@ -160,11 +159,10 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
             </div>
           </div>
 
-          <div className={`bg-[#0F172A] border rounded-xl p-3 flex items-center gap-3 ${
-            execution.status === 'SUCCESS'
+          <div className={`bg-[#0F172A] border rounded-xl p-3 flex items-center gap-3 ${execution.status === 'SUCCESS'
               ? 'border-emerald-500/40 bg-emerald-950/20'
               : 'border-[#1E293B]'
-          }`}>
+            }`}>
             <Hammer className={`w-5 h-5 shrink-0 ${execution.status === 'SUCCESS' ? 'text-emerald-400' : 'text-gray-400'}`} />
             <div>
               <div className="text-[10px] text-gray-400 uppercase font-mono">Stage 4</div>

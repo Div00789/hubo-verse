@@ -10,8 +10,8 @@ import {
 
 export const DEMO_ORGANIZATION: Organization = {
   id: 'org_enterprise_01',
-  name: 'Acme Global Ventures',
-  slug: 'acme-global',
+  name: 'HuboVerse Demo Enterprise',
+  slug: 'huboverse-demo',
   subscriptionTier: 'ENTERPRISE',
   subscriptionStatus: 'ACTIVE',
   maxSeats: 25,
@@ -26,8 +26,8 @@ export const DEMO_HUBSPOT_CONNECTION: HubSpotPortalConnection = {
   id: 'conn_hs_98124',
   organizationId: 'org_enterprise_01',
   portalId: '44891204',
-  portalName: 'Acme Global Production CRM',
-  hubspotDomain: 'acmeglobal.hubspot.com',
+  portalName: 'HubSpot Enterprise Sandbox CRM',
+  hubspotDomain: 'sandbox-44891204.hubspot.com',
   installedScopes: [
     'crm.objects.contacts.read',
     'crm.objects.contacts.write',

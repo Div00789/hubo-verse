@@ -49,12 +49,12 @@ export const OrgSettings: React.FC = () => {
         <div className="divide-y divide-[#1E293B] text-xs">
           <div className="py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-600/30 border border-blue-500 text-blue-300 font-bold flex items-center justify-center text-xs">
-                ST
+              <div className="w-8 h-8 rounded-full bg-orange-600/30 border border-orange-500 text-[#FF5C00] font-bold flex items-center justify-center text-xs">
+                AD
               </div>
               <div>
-                <div className="font-semibold text-white">Sarah T. (You)</div>
-                <div className="text-[11px] text-gray-400">sarah@acmeglobal.com</div>
+                <div className="font-semibold text-white">Organisation Administrator</div>
+                <div className="text-[11px] text-gray-400">admin@acmeglobal.com</div>
               </div>
             </div>
             <div className="flex items-center gap-2">

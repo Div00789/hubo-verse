@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { NavigationSidebar, ActiveTab } from '@/components/NavigationSidebar';
 import { TopNavbar } from '@/components/TopNavbar';
+import { DashboardOverview } from '@/components/DashboardOverview';
 import { AnnaChatInterface } from '@/components/AnnaChatInterface';
 import { AnnaBuildInterface } from '@/components/AnnaBuildInterface';
 import { PortalStatusCard } from '@/components/PortalStatusCard';
@@ -11,12 +12,14 @@ import { ProjectsTracker } from '@/components/ProjectsTracker';
 import { OrgSettings } from '@/components/OrgSettings';
 
 export default function AppHomePage() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('anna');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [annaMode, setAnnaMode] = useState<'CHAT' | 'BUILD'>('CHAT');
   const [buildInitialPrompt, setBuildInitialPrompt] = useState<string | undefined>();
 
   const getNavbarTitle = () => {
     switch (activeTab) {
+      case 'home':
+        return 'Overview Dashboard';
       case 'anna':
         return annaMode === 'CHAT' ? 'Anna AI — Chat Mode' : 'Anna AI — Build Mode';
       case 'portals':
@@ -34,6 +37,8 @@ export default function AppHomePage() {
 
   const getNavbarSubtitle = () => {
     switch (activeTab) {
+      case 'home':
+        return 'Executive overview of CRM health, AI operations, and learning';
       case 'anna':
         return annaMode === 'CHAT'
           ? 'Enterprise RAG advisor for HubSpot workflows, schemas, and best practices'
@@ -48,6 +53,13 @@ export default function AppHomePage() {
         return 'Role-based access matrix and subscription limits';
       default:
         return undefined;
+    }
+  };
+
+  const handleNavigateFromHome = (tab: ActiveTab, mode?: 'CHAT' | 'BUILD') => {
+    setActiveTab(tab);
+    if (mode) {
+      setAnnaMode(mode);
     }
   };
 
@@ -67,15 +79,24 @@ export default function AppHomePage() {
         setActiveTab={setActiveTab}
         annaMode={annaMode}
         setAnnaMode={setAnnaMode}
-        portalName="Acme Global Production CRM"
+        portalName="HubSpot Demo Sandbox"
         isPortalConnected={true}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopNavbar title={getNavbarTitle()} subtitle={getNavbarSubtitle()} />
+        <TopNavbar
+          title={getNavbarTitle()}
+          subtitle={getNavbarSubtitle()}
+          onGoHome={() => setActiveTab('home')}
+          isHome={activeTab === 'home'}
+        />
 
         <main className="flex-1 overflow-hidden">
+          {activeTab === 'home' && (
+            <DashboardOverview onNavigate={handleNavigateFromHome} />
+          )}
+
           {activeTab === 'anna' && annaMode === 'CHAT' && (
             <AnnaChatInterface onSwitchToBuildMode={handleSwitchToBuild} />
           )}

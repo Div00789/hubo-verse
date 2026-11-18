@@ -21,18 +21,15 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <header className="border-b border-[#1E293B] bg-[#0B101D] px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-rose-600/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
-            <ShieldAlert className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>HuboVerse Staff Operations Admin</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">
-                SUPER ADMIN
-              </span>
-            </h1>
-            <p className="text-[11px] text-gray-400">HuboExperts Global Platform Oversight</p>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/huboverse-logo-dark.png"
+            alt="HuboVerse"
+            className="h-7 w-auto object-contain"
+          />
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">
+            SUPER ADMIN
+          </span>
         </div>
 
         <div className="flex items-center gap-4 text-xs">
