@@ -1,11 +1,6 @@
 {
   "name": "huboverse-monorepo",
   "private": true,
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm"
-    }
-  },
   "scripts": {
     "dev": "turbo run dev",
     "dev:app": "pnpm --filter huboverse-app dev",
@@ -13,6 +8,9 @@
     "dev:admin": "pnpm --filter huboverse-admin dev",
     "dev:api": "pnpm --filter huboverse-api dev",
     "build": "turbo run build",
+    "build:web": "pnpm --filter huboverse-web build",
+    "build:app": "pnpm --filter huboverse-app build",
+    "build:admin": "pnpm --filter huboverse-admin build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
@@ -22,5 +20,6 @@
     "turbo": "^2.4.4",
     "typescript": "^5.7.3",
     "prettier": "^3.5.1"
-  }
+  },
+  "packageManager": "pnpm@10.5.2"
 }

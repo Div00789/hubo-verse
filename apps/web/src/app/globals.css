@@ -18,13 +18,16 @@ body {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: #06090f;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #1e293b;
   border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #ff5c00;
 }

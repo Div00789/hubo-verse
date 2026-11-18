@@ -38,11 +38,10 @@ export const SiteHeader: React.FC = () => {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`transition-colors py-1 relative ${
-                  isActive
-                    ? 'text-white font-semibold'
-                    : 'text-gray-300 hover:text-[#FF5C00]'
-                }`}
+                className={`transition-colors py-1 relative ${isActive
+                  ? 'text-white font-semibold'
+                  : 'text-gray-300 hover:text-[#FF5C00]'
+                  }`}
               >
                 {link.label}
                 {isActive && (
