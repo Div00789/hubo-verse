@@ -52,13 +52,13 @@ export default function MarketingHomePage() {
 
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#E04F00] text-white font-bold text-sm hover:opacity-95 shadow-xl shadow-[#FF5C00]/30 transition-all flex items-center gap-2 group"
             >
               <span>Explore Client Workspace</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </a>
+            </Link>
             <Link
               href="/contact"
               className="px-7 py-4 rounded-2xl bg-[#0E1526] hover:bg-[#152038] text-white font-semibold text-sm border border-[#1E293B] transition-colors shadow-lg"
@@ -253,12 +253,12 @@ export default function MarketingHomePage() {
               Join leading B2B enterprises and HubSpot agencies using HuboVerse for unified training, AI consulting, and autonomous execution.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="http://localhost:3001"
+              <Link
+                href="/app"
                 className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#FF5C00] to-[#E04F00] text-white font-bold text-sm shadow-xl shadow-[#FF5C00]/25 hover:opacity-95 transition-all"
               >
                 Launch Client Workspace
-              </a>
+              </Link>
               <Link
                 href="/pricing"
                 className="px-6 py-3.5 rounded-xl bg-[#0B0F19] hover:bg-[#111827] text-white font-semibold text-sm border border-[#1E293B] transition-colors"

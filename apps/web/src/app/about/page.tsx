@@ -147,13 +147,13 @@ export default function AboutPage() {
             Experience Anna AI and our complete learning ecosystem inside the HuboVerse interactive workspace today.
           </p>
           <div className="pt-2 flex justify-center gap-4">
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="px-6 py-3 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white font-bold text-xs transition-all shadow-md flex items-center gap-2"
             >
               <span>Open Interactive Workspace</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
             <Link
               href="/contact"
               className="px-6 py-3 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] text-gray-300 hover:text-white font-semibold text-xs border border-[#1E293B] transition-colors"

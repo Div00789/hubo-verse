@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@huboverse/types": "workspace:*",
+    "@huboverse/database": "workspace:*",
+    "@huboverse/hubspot-sdk": "workspace:*",
+    "@huboverse/ai-agent": "workspace:*",
     "next": "^15.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -106,13 +106,13 @@ export default function AcademyPage() {
           </p>
 
           <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="px-6 py-3 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white font-bold text-sm transition-all shadow-lg shadow-[#FF5C00]/25 flex items-center gap-2"
             >
               <span>Explore Course Catalog</span>
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </Link>
             <Link
               href="/contact"
               className="px-6 py-3 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] text-gray-300 hover:text-white font-semibold text-sm border border-[#1E293B] transition-colors"
@@ -181,12 +181,12 @@ export default function AcademyPage() {
                 ))}
               </div>
 
-              <a
-                href="http://localhost:3001"
+              <Link
+                href="/app"
                 className="w-full py-2.5 rounded-lg bg-[#1E293B] hover:bg-[#283548] text-center text-xs font-semibold text-white block transition-colors border border-[#1E293B]"
               >
                 Join Live Class in App
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -198,13 +198,13 @@ export default function AcademyPage() {
               <div className="text-xs font-bold text-[#FF5C00] uppercase tracking-wider">Mux On-Demand Masterclasses</div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">Featured Video Curriculum</h2>
             </div>
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="text-xs font-semibold text-[#FF5C00] hover:underline inline-flex items-center gap-1"
             >
               <span>View all 34 courses in App</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -237,12 +237,12 @@ export default function AcademyPage() {
                       {course.lessons} lessons
                     </span>
                   </div>
-                  <a
-                    href="http://localhost:3001"
+                  <Link
+                    href="/app"
                     className="text-xs font-semibold text-[#FF5C00] hover:underline"
                   >
                     Start Course &rarr;
-                  </a>
+                  </Link>
                 </div>
               </div>
             ))}
@@ -257,13 +257,13 @@ export default function AcademyPage() {
             Every course completion awards a cryptographically verifiable HuboVerse Certificate of Mastery recognized by leading RevOps hiring managers.
           </p>
           <div className="pt-2">
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white font-bold text-xs transition-all shadow-md"
             >
               <span>Enroll in HuboVerse Workspace</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
         </div>
       </main>

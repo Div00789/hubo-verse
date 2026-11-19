@@ -91,9 +91,9 @@ export const SiteFooter: React.FC = () => {
               </Link>
             </li>
             <li>
-              <a href="http://localhost:3002" className="hover:text-[#FF5C00] transition-colors">
-                Staff Operations Admin
-              </a>
+              <Link href="/app" className="hover:text-[#FF5C00] transition-colors">
+                Client Workspace &amp; Anna AI
+              </Link>
             </li>
           </ul>
         </div>

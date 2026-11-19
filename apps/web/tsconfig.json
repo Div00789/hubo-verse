@@ -19,7 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@huboverse/types": ["../../packages/types/src"],
+      "@huboverse/database": ["../../packages/database/src"],
+      "@huboverse/hubspot-sdk": ["../../packages/hubspot-sdk/src"],
+      "@huboverse/ai-agent": ["../../packages/ai-agent/src"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

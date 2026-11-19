@@ -60,13 +60,13 @@ export const SiteHeader: React.FC = () => {
           >
             Sign In
           </Link>
-          <a
-            href="http://localhost:3001"
+          <Link
+            href="/app"
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5C00] to-[#E04F00] text-white text-xs font-bold hover:opacity-95 shadow-lg shadow-[#FF5C00]/25 transition-all flex items-center gap-1.5"
           >
             <span>Launch App</span>
             <ArrowRight className="w-3.5 h-3.5" />
-          </a>
+          </Link>
         </div>
 
         {/* Mobile Hamburger */}
@@ -99,12 +99,12 @@ export const SiteHeader: React.FC = () => {
             >
               Sign In
             </Link>
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="flex-1 text-center py-2 rounded-lg bg-[#FF5C00] text-xs font-bold text-white shadow-md shadow-[#FF5C00]/25"
             >
               Launch App
-            </a>
+            </Link>
           </div>
         </div>
       )}

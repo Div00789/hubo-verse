@@ -92,12 +92,12 @@ export default function ContactPage() {
                   You can explore the HuboVerse client dashboard immediately without waiting for a sales call.
                 </p>
                 <div className="pt-1">
-                  <a
-                    href="http://localhost:3001"
+                  <Link
+                    href="/app"
                     className="inline-flex items-center gap-2 text-xs font-bold text-[#FF5C00] hover:underline"
                   >
                     <span>Launch Interactive Demo &rarr;</span>
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>

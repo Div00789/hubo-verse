@@ -25,7 +25,7 @@ export default function LoginPage() {
     setLoading(true);
     // Simulate real auth handshake and redirect to the application
     setTimeout(() => {
-      window.location.href = 'http://localhost:3001';
+      window.location.href = '/app';
     }, 900);
   };
 
@@ -63,12 +63,12 @@ export default function LoginPage() {
               </span>
               <span className="text-[10px] text-emerald-400 font-mono">Instant</span>
             </div>
-            <a
-              href="http://localhost:3001"
+            <Link
+              href="/app"
               className="w-full py-2 rounded-lg bg-[#FF5C00] hover:bg-[#FF7A00] text-center text-xs font-bold text-white block transition-colors shadow-md shadow-[#FF5C00]/20"
             >
               Launch Interactive Client Workspace &rarr;
-            </a>
+            </Link>
           </div>
 
           <div className="relative flex items-center justify-center">

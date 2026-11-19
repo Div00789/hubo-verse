@@ -67,13 +67,13 @@ export default function AnnaPage() {
             </div>
 
             <div className="pt-2">
-              <a
-                href="http://localhost:3001"
+              <Link
+                href="/app"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] text-white text-xs font-semibold border border-[#1E293B] transition-colors"
               >
                 <span>Try Chat Mode in Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5 text-cyan-400" />
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -173,13 +173,13 @@ export default function AnnaPage() {
             </div>
 
             <div className="pt-2">
-              <a
-                href="http://localhost:3001"
+              <Link
+                href="/app"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5C00] to-[#E04F00] text-white text-xs font-bold shadow-lg shadow-[#FF5C00]/25 hover:opacity-95 transition-all"
               >
                 <span>Launch Build Mode</span>
                 <ArrowRight className="w-3.5 h-3.5" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
