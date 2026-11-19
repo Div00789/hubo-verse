@@ -272,6 +272,20 @@ export interface ExpertProfile {
   updatedAt: string;
 }
 
+export interface RecordedExpertVideo {
+  id: string;
+  expertId: string;
+  title: string;
+  description: string;
+  videoUrl: string;
+  embedUrl: string;
+  category: string;
+  thumbnailUrl?: string;
+  displayOrder: number;
+  isPublished: boolean;
+  createdAt: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   organizationId: string;

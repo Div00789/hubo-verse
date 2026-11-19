@@ -255,11 +255,10 @@ export default function MarketingHomePage() {
                 <span>Certified HubSpot Practitioners</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-2">
-                Meet Our HubSpot Experts
+                Learn from Industry Experts
               </h2>
               <p className="text-sm sm:text-base text-gray-400 mt-2 max-w-2xl">
-                Learn from experienced HubSpot professionals who combine practical CRM expertise,
-                advanced automation and modern AI technologies to help businesses grow.
+                Gain practical insights, explore expert-led tutorials, and learn directly from experienced professionals.
               </p>
             </div>
 
@@ -280,7 +279,7 @@ export default function MarketingHomePage() {
               >
                 <div className="space-y-5">
                   <div className="flex gap-4 items-center">
-                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-[#1E293B] shrink-0 bg-[#131B2E]">
+                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-[#2F6FED]/40 shrink-0 bg-gradient-to-b from-[#132247] to-[#0A1020] shadow-md shadow-[#2F6FED]/20">
                       <Image
                         src={expert.profileImagePath}
                         alt={expert.fullName}
@@ -289,10 +288,10 @@ export default function MarketingHomePage() {
                       />
                     </div>
                     <div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#131B2E] text-[#FF5C00] border border-[#1E293B]">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#2F6FED]/15 text-[#2F6FED] border border-[#2F6FED]/30">
                         {expert.experienceDisplay}
                       </span>
-                      <h3 className="text-xl font-bold text-white mt-1 group-hover:text-[#FF5C00] transition-colors">
+                      <h3 className="text-xl font-bold text-white mt-1 group-hover:text-[#2F6FED] transition-colors">
                         {expert.fullName}
                       </h3>
                       <p className="text-xs text-gray-400 line-clamp-1">{expert.professionalTitle}</p>
@@ -321,7 +320,7 @@ export default function MarketingHomePage() {
                   </span>
                   <Link
                     href={`/experts/${expert.slug}`}
-                    className="text-xs font-bold text-[#FF5C00] hover:underline flex items-center gap-1"
+                    className="text-xs font-bold text-[#2F6FED] hover:underline flex items-center gap-1"
                   >
                     <span>View Profile</span>
                     <ArrowRight className="w-3.5 h-3.5" />

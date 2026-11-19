@@ -4,14 +4,14 @@ import { DEMO_COURSES, DEMO_LIVE_CLASSES } from '@huboverse/database';
 
 export const AcademyCatalog: React.FC = () => {
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
+    <div className="w-full p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8 pb-16">
       {/* Live Classes Section (LiveKit Integration) */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-              <h2 className="text-lg font-bold text-white">Live Classes & Workshops (LiveKit Cloud)</h2>
+              <h2 className="text-base sm:text-lg font-bold text-white">Live Classes & Workshops (LiveKit Cloud)</h2>
             </div>
             <p className="text-xs text-gray-400">
               Interactive instructor-led studio sessions with LiveKit real-time audio/video and cloud egress.
@@ -19,7 +19,7 @@ export const AcademyCatalog: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {DEMO_LIVE_CLASSES.map((cls) => (
             <div
               key={cls.id}
@@ -77,7 +77,7 @@ export const AcademyCatalog: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {DEMO_COURSES.map((course) => (
             <div
               key={course.id}

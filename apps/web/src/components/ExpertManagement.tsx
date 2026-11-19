@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Users,
   Award,
@@ -19,6 +20,7 @@ import {
   AlertCircle,
   X,
   Upload,
+  ArrowRight,
 } from 'lucide-react';
 import {
   DEMO_EXPERTS,
@@ -175,22 +177,24 @@ export const ExpertManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="w-full max-w-6xl mx-auto space-y-8 pb-16">
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1E293B]">
         <div>
           <div className="text-xs font-mono uppercase text-[#FF5C00] tracking-wider font-semibold">
             Directory &amp; Instructor Management
           </div>
-          <h2 className="text-xl font-bold text-white mt-0.5">Meet Our HubSpot Experts — Admin</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Manage public expert profiles, biographies, skills, certifications, and course links.
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
+            Learn from Industry Experts
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl leading-relaxed">
+            Gain practical insights, explore expert-led tutorials, and learn directly from experienced professionals.
           </p>
         </div>
 
         <button
           onClick={startCreate}
-          className="px-4 py-2.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white text-xs font-bold transition-all shadow-md shadow-[#FF5C00]/20 flex items-center gap-2"
+          className="px-4 py-2.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white text-xs font-bold transition-all shadow-md shadow-[#FF5C00]/20 flex items-center gap-2 self-start sm:self-auto shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Add New Expert Profile</span>
@@ -206,113 +210,152 @@ export const ExpertManagement: React.FC = () => {
       )}
 
       {/* Active Experts List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {experts.map((exp) => {
           const courses = getCoursesByExpertId(exp.id);
           const liveClasses = getLiveClassesByExpertId(exp.id);
 
+          const isBlueTheme = exp.slug === 'divyanshu-tuli';
+          const themeTitleColor = isBlueTheme ? 'text-[#2F6FED]' : 'text-[#FF5C00]';
+          const themeCardHover = isBlueTheme
+            ? 'hover:border-[#2F6FED]/60 hover:shadow-2xl hover:shadow-[#2F6FED]/15'
+            : 'hover:border-[#FF5C00]/60 hover:shadow-2xl hover:shadow-[#FF5C00]/15';
+          const themeImageBg = isBlueTheme
+            ? 'from-[#17387E] via-[#0F224D] to-[#0B0F19]'
+            : 'from-[#55230C] via-[#26120A] to-[#0B0F19]';
+          const themeGlow = isBlueTheme ? 'bg-[#2F6FED]/25' : 'bg-[#FF5C00]/25';
+          const themeBtn = isBlueTheme
+            ? 'bg-gradient-to-r from-[#2F6FED] to-blue-600 hover:from-[#2558c4] hover:to-blue-700 shadow-[#2F6FED]/25'
+            : 'bg-gradient-to-r from-[#FF5C00] to-orange-600 hover:from-[#d94e00] hover:to-orange-700 shadow-[#FF5C00]/25';
+
           return (
             <div
               key={exp.id}
-              className={`bg-[#0B0F19] border ${
-                exp.isActive ? 'border-[#1E293B]' : 'border-dashed border-gray-700 opacity-70'
-              } rounded-2xl p-6 shadow-xl space-y-5 flex flex-col justify-between`}
+              className={`group bg-[#0B0F19] border border-[#1E293B] ${themeCardHover} rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between`}
             >
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#1E293B] shrink-0 bg-[#131B2E]">
-                      <Image
-                        src={exp.profileImagePath}
-                        alt={exp.fullName}
-                        fill
-                        className="object-cover object-top"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-white text-base">{exp.fullName}</h3>
-                        {exp.isFeatured && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#FF5C00]/20 text-[#FF5C00] text-[10px] font-bold">
-                            FEATURED
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-400 font-medium line-clamp-1">
-                        {exp.professionalTitle}
-                      </div>
-                      <div className="text-[11px] text-[#FF5C00] font-mono mt-0.5">
-                        {exp.experienceDisplay}
-                      </div>
-                    </div>
+              {/* Image Container with Ambient Themed Background & Glow */}
+              <div
+                className={`relative w-full h-[320px] sm:h-[360px] overflow-hidden bg-gradient-to-b ${themeImageBg}`}
+              >
+                {/* Subtle Ambient Radial Lighting */}
+                <div
+                  className={`absolute top-4 left-1/2 -translate-x-1/2 w-64 h-64 ${themeGlow} rounded-full blur-3xl pointer-events-none`}
+                />
+
+                <Image
+                  src={exp.profileImagePath}
+                  alt={exp.fullName}
+                  fill
+                  priority
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 45vw"
+                  className="object-contain object-bottom pt-5 transition-transform duration-500 ease-out group-hover:scale-105"
+                />
+
+                {/* Subtle bottom fade into card dark base */}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/60 to-transparent pointer-events-none" />
+
+                {/* Top Badges Overlay (Eye Icon Removed) */}
+                <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2 z-10">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-white text-xs font-semibold shadow-lg">
+                      <Sparkles className="w-3.5 h-3.5 text-[#FF5C00]" />
+                      <span>{exp.experienceDisplay}</span>
+                    </span>
+                    {exp.isFeatured && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#FF5C00] to-amber-500 text-white text-[11px] font-extrabold tracking-wider uppercase shadow-lg shadow-[#FF5C00]/30">
+                        <Star className="w-3 h-3 fill-white" />
+                        <span>Featured</span>
+                      </span>
+                    )}
                   </div>
-
-                  <button
-                    onClick={() => togglePublish(exp.id)}
-                    className={`p-2 rounded-lg border text-xs font-medium transition-colors ${
-                      exp.isActive
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                        : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
-                    }`}
-                    title={exp.isActive ? 'Published (Click to unpublish)' : 'Unpublished (Click to publish)'}
-                  >
-                    {exp.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                <p className="text-xs text-gray-400 line-clamp-2">{exp.shortBio}</p>
-
-                {/* Badges Preview */}
-                <div className="flex flex-wrap gap-1.5">
-                  {exp.skills.slice(0, 4).map((skill) => (
-                    <span
-                      key={skill}
-                      className="px-2 py-0.5 rounded text-[10px] bg-[#131B2E] text-gray-300 border border-[#1E293B]"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                  {exp.skills.length > 4 && (
-                    <span className="px-2 py-0.5 rounded text-[10px] bg-[#131B2E] text-gray-400">
-                      +{exp.skills.length - 4} more
-                    </span>
-                  )}
-                </div>
-
-                {/* Linked Content Preview */}
-                <div className="pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-gray-400">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5 text-[#FF5C00]" />
-                      <strong>{courses.length}</strong> Courses
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-                      <strong>{liveClasses.length}</strong> Live
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-gray-500">Order: #{exp.displayOrder}</span>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-[#1E293B] flex items-center gap-2">
-                <button
-                  onClick={() => startEdit(exp)}
-                  className="flex-1 py-2 px-3 rounded-lg bg-[#131B2E] hover:bg-[#1E293B] text-xs font-semibold text-white border border-[#1E293B] flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-[#FF5C00]" />
-                  <span>Edit Profile</span>
-                </button>
-                <a
-                  href={`/experts/${exp.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="py-2 px-3 rounded-lg bg-[#0F172A] hover:bg-[#152038] text-xs font-medium text-gray-300 hover:text-white border border-[#1E293B] transition-colors"
-                  title="View Public Profile Page"
-                >
-                  View Public
-                </a>
+              {/* Card Body */}
+              <div className="p-6 sm:p-7 flex-1 flex flex-col justify-between space-y-5 bg-[#0B0F19]">
+                <div className="space-y-4">
+                  {/* Name, Title & Order */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-extrabold text-white text-2xl tracking-tight group-hover:text-blue-400 transition-colors">
+                        {exp.fullName}
+                      </h3>
+                      <span className="text-[11px] font-mono text-gray-400 bg-[#131B2E] px-2.5 py-1 rounded-md border border-[#1E293B] shrink-0">
+                        Order #{exp.displayOrder}
+                      </span>
+                    </div>
+                    <p className={`text-sm font-semibold ${themeTitleColor} leading-snug`}>
+                      {exp.professionalTitle}
+                    </p>
+                  </div>
+
+                  {/* Verified Certifications */}
+                  {exp.certifications && exp.certifications.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {exp.certifications.map((cert) => (
+                        <span
+                          key={cert}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[#2F6FED]/15 text-blue-200 border border-[#2F6FED]/30"
+                        >
+                          <Award className="w-3.5 h-3.5 text-[#2F6FED]" />
+                          <span>{cert}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Biography */}
+                  <p className="text-xs sm:text-sm text-gray-300 leading-relaxed line-clamp-3">
+                    {exp.shortBio}
+                  </p>
+
+                  {/* Core Specialisations */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      Core Specialisations
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {exp.skills.slice(0, 5).map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-2.5 py-1 rounded-lg text-xs bg-[#131B2E] text-gray-200 border border-[#1E293B]"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                      {exp.skills.length > 5 && (
+                        <span className="px-2.5 py-1 rounded-lg text-xs bg-[#131B2E] text-gray-400 border border-[#1E293B]">
+                          +{exp.skills.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Linked Academy Content */}
+                  <div className="pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-gray-300">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-[#FF5C00]" />
+                        <strong className="text-white font-bold">{courses.length}</strong> Courses
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-cyan-400" />
+                        <strong className="text-white font-bold">{liveClasses.length}</strong> Live Workshops
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary Action Button — Single Full-Width "View Profile" Button */}
+                <div className="pt-2">
+                  <Link
+                    href={`/experts/${exp.slug}`}
+                    className={`w-full py-3.5 px-5 rounded-xl ${themeBtn} text-white font-bold text-sm shadow-lg transition-all duration-200 flex items-center justify-center gap-2 group/btn cursor-pointer`}
+                  >
+                    <span>View Profile</span>
+                    <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1.5 transition-transform" />
+                  </Link>
+                </div>
               </div>
             </div>
           );

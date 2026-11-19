@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ShieldAlert,
   Users,
+  X,
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 
@@ -26,6 +27,8 @@ interface NavigationSidebarProps {
   setAnnaMode: (mode: 'CHAT' | 'BUILD') => void;
   portalName: string;
   isPortalConnected: boolean;
+  isOpenOnMobile?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
@@ -35,18 +38,35 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
   setAnnaMode,
   portalName,
   isPortalConnected,
+  isOpenOnMobile = false,
+  onCloseMobile,
 }) => {
   return (
-    <aside className="w-64 bg-[#0B101D] border-r border-[#1E293B] flex flex-col justify-between shrink-0 h-screen select-none">
+    <aside
+      className={`fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-[#0B101D] border-r border-[#1E293B] flex flex-col justify-between shrink-0 h-full max-h-screen select-none overflow-y-auto transition-transform duration-300 ease-in-out ${
+        isOpenOnMobile ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+      }`}
+    >
       {/* Header & Logo with Click-to-Home */}
-      <div className="p-4 border-b border-[#1E293B]">
-        <button
-          onClick={() => setActiveTab('home')}
-          className="w-full flex items-center text-left hover:opacity-90 transition-opacity"
-          title="Return to Home Dashboard"
-        >
-          <BrandLogo size="md" />
-        </button>
+      <div className="p-4 border-b border-[#1E293B] shrink-0">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setActiveTab('home')}
+            className="flex items-center text-left hover:opacity-90 transition-opacity"
+            title="Return to Home Dashboard"
+          >
+            <BrandLogo size="md" />
+          </button>
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#131B2E]"
+              title="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
         {/* Workspace Mode / Tenant State */}
         <div className="mt-4 p-2.5 rounded-lg bg-[#131B2E] border border-[#1E293B] flex items-center justify-between cursor-pointer hover:border-[#FF5C00]/40 transition-colors">
@@ -156,7 +176,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
               }`}
           >
             <Users className="w-4 h-4 text-[#FF5C00]" />
-            <span>Meet Our Experts</span>
+            <span>Industry Experts</span>
           </button>
 
           <button
@@ -184,7 +204,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       </nav>
 
       {/* Cross-App Navigation & Portal Footer */}
-      <div className="p-3 border-t border-[#1E293B] bg-[#090D16] space-y-2.5">
+      <div className="p-3 border-t border-[#1E293B] bg-[#090D16] space-y-2.5 shrink-0">
         <div className="flex items-center gap-2 text-[11px]">
           <Link
             href="/"

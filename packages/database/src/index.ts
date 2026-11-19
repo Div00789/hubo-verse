@@ -8,6 +8,7 @@ import type {
   AnnaChatMessage,
   AnnaBuildExecution,
   ExpertProfile,
+  RecordedExpertVideo,
 } from '@huboverse/types';
 
 export function createSupabaseServerClient(supabaseUrl: string, serviceRoleKey: string) {
@@ -73,7 +74,7 @@ export const DEMO_EXPERTS: ExpertProfile[] = [
     professionalTitle: 'HubSpot & RevOps Certified Expert | AI Automation Specialist',
     yearsExperience: 10,
     experienceDisplay: '10+ Years of Experience',
-    profileImagePath: '/experts/divyanshu-tuli.png',
+    profileImagePath: '/experts/divyanshu-tuli-blue.png',
     shortBio:
       'HubSpot-certified and RevOps-certified professional with over 10 years of experience in CRM, digital marketing, revenue operations and business automation.',
     fullBio:
@@ -104,7 +105,7 @@ export const DEMO_EXPERTS: ExpertProfile[] = [
     professionalTitle: 'HubSpot Automation Expert | CRM & AI Tools Specialist',
     yearsExperience: 3,
     experienceDisplay: '3+ Years of Experience',
-    profileImagePath: '/experts/aadesh-dhall.jpg',
+    profileImagePath: '/experts/aadesh-dhall.png',
     shortBio:
       'HubSpot Automation Expert with over 3 years of hands-on experience in CRM automation, workflow development and HubSpot implementation.',
     fullBio:
@@ -140,6 +141,54 @@ export function getCoursesByExpertId(expertId: string): Course[] {
 
 export function getLiveClassesByExpertId(expertId: string): LiveClass[] {
   return DEMO_LIVE_CLASSES.filter((cls) => cls.instructorId === expertId);
+}
+
+export const DEMO_RECORDED_VIDEOS: RecordedExpertVideo[] = [
+  {
+    id: 'vid_zapier_01',
+    expertId: 'exp_divyanshu_tuli',
+    title: 'HubSpot & Zapier Integration',
+    description:
+      'Learn how HubSpot and Zapier can work together to connect applications and streamline business automation processes.',
+    videoUrl: 'https://www.loom.com/share/ddbc2f4398074cad9374fc22b83a6b27',
+    embedUrl: 'https://www.loom.com/embed/ddbc2f4398074cad9374fc22b83a6b27',
+    category: 'HubSpot Integrations',
+    displayOrder: 1,
+    isPublished: true,
+    createdAt: '2026-11-19T00:00:00Z',
+  },
+  {
+    id: 'vid_shared_deals_02',
+    expertId: 'exp_divyanshu_tuli',
+    title: 'Creating Shared Deals in HubSpot',
+    description:
+      'A practical HubSpot tutorial covering shared deal management and collaboration within the CRM.',
+    videoUrl: 'https://www.loom.com/share/08c71411a5b144eebfba7dda9ac558d6',
+    embedUrl: 'https://www.loom.com/embed/08c71411a5b144eebfba7dda9ac558d6',
+    category: 'HubSpot Sales CRM',
+    displayOrder: 2,
+    isPublished: true,
+    createdAt: '2026-11-19T00:00:00Z',
+  },
+  {
+    id: 'vid_sales_ext_03',
+    expertId: 'exp_divyanshu_tuli',
+    title: 'Download & Integrate HubSpot Sales Extension',
+    description:
+      'Learn how to download and integrate the HubSpot Sales Extension to support sales activities and improve productivity.',
+    videoUrl: 'https://www.loom.com/share/43fa73c57f2345ff98aee86c56744584',
+    embedUrl: 'https://www.loom.com/embed/43fa73c57f2345ff98aee86c56744584',
+    category: 'HubSpot Sales Tools',
+    displayOrder: 3,
+    isPublished: true,
+    createdAt: '2026-11-19T00:00:00Z',
+  },
+];
+
+export function getRecordedVideosByExpertId(expertId: string): RecordedExpertVideo[] {
+  return DEMO_RECORDED_VIDEOS.filter((v) => v.expertId === expertId && v.isPublished).sort(
+    (a, b) => a.displayOrder - b.displayOrder
+  );
 }
 
 export const DEMO_COURSES: Course[] = [

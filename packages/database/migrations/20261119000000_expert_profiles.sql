@@ -101,7 +101,7 @@ INSERT INTO expert_profiles (
   'Divyanshu Tuli is a HubSpot-certified and RevOps-certified professional with over 10 years of experience in CRM, digital marketing, revenue operations and business automation.\n\nHe specialises in HubSpot implementation, advanced CRM automation, sales and marketing operations, and AI-powered business solutions.\n\nWith hands-on expertise in the latest HubSpot AI capabilities and modern automation tools, Divyanshu helps businesses streamline processes, improve operational efficiency and build scalable revenue systems.',
   10,
   '10+ Years of Experience',
-  '/experts/divyanshu-tuli.png',
+  '/experts/divyanshu-tuli-blue.png',
   '[
     "HubSpot CRM",
     "Revenue Operations (RevOps)",
@@ -131,7 +131,7 @@ INSERT INTO expert_profiles (
   'Aadesh Dhall is a HubSpot Automation Expert with over 3 years of hands-on experience in CRM automation, workflow development and HubSpot implementation.\n\nHe has practical experience working with international clients, helping businesses optimise HubSpot processes, automate repetitive tasks and improve sales and marketing operations.\n\nWith knowledge of the latest HubSpot capabilities and emerging AI tools, Aadesh focuses on building efficient, scalable automation solutions that simplify CRM management and support business growth.',
   3,
   '3+ Years of Experience',
-  '/experts/aadesh-dhall.jpg',
+  '/experts/aadesh-dhall.png',
   '[
     "HubSpot Automation",
     "CRM Workflows",

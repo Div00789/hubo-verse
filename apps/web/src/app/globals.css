@@ -7,10 +7,18 @@
   --foreground: #f8fafc;
 }
 
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  min-height: 100%;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* Custom dark scrollbar */

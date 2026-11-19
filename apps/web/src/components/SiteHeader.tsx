@@ -12,7 +12,7 @@ export const SiteHeader: React.FC = () => {
 
   const navLinks = [
     { label: 'Platform', href: '/features' },
-    { label: 'Experts', href: '/experts' },
+    { label: 'Industry Experts', href: '/experts' },
     { label: 'Anna AI', href: '/anna' },
     { label: 'Academy & LiveKit', href: '/academy' },
     { label: 'Pricing', href: '/pricing' },
@@ -22,7 +22,7 @@ export const SiteHeader: React.FC = () => {
 
   return (
     <header className="border-b border-[#1E293B]/80 bg-[#06090F]/90 backdrop-blur-xl sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* Brand Logo - Clicking always routes home cleanly */}
         <div className="flex items-center gap-3">
           <BrandLogo size="md" variant="dark" href="/" />

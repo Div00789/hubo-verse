@@ -16,6 +16,7 @@ export default function AppHomePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [annaMode, setAnnaMode] = useState<'CHAT' | 'BUILD'>('CHAT');
   const [buildInitialPrompt, setBuildInitialPrompt] = useState<string | undefined>();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const getNavbarTitle = () => {
     switch (activeTab) {
@@ -28,7 +29,7 @@ export default function AppHomePage() {
       case 'academy':
         return 'Learning Academy & Live Classes';
       case 'experts':
-        return 'Meet Our HubSpot Experts — Directory & Management';
+        return 'Learn from Industry Experts';
       case 'projects':
         return 'Client Projects';
       case 'settings':
@@ -51,7 +52,7 @@ export default function AppHomePage() {
       case 'academy':
         return 'LiveKit cloud workshops and Mux on-demand video masterclasses';
       case 'experts':
-        return 'Manage certified specialist profiles, professional biographies, skills, and academy courses';
+        return 'Gain practical insights, explore expert-led tutorials, and learn directly from experienced professionals.';
       case 'projects':
         return 'Track implementation roadmaps and expert consultant tasks';
       case 'settings':
@@ -77,27 +78,46 @@ export default function AppHomePage() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#090D16]">
+    <div className="flex h-screen h-[100dvh] w-full overflow-hidden bg-[#090D16] relative">
+      {/* Mobile Drawer Backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
+          aria-label="Close sidebar"
+        />
+      )}
+
       {/* Navigation Sidebar */}
       <NavigationSidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setMobileSidebarOpen(false);
+        }}
         annaMode={annaMode}
         setAnnaMode={setAnnaMode}
         portalName="HubSpot Demo Sandbox"
         isPortalConnected={true}
+        isOpenOnMobile={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <TopNavbar
           title={getNavbarTitle()}
           subtitle={getNavbarSubtitle()}
           onGoHome={() => setActiveTab('home')}
           isHome={activeTab === 'home'}
+          onToggleMobileMenu={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         />
 
-        <main className="flex-1 overflow-hidden">
+        <main
+          className={`flex-1 min-w-0 w-full ${
+            activeTab === 'anna' && annaMode === 'CHAT' ? 'overflow-hidden' : 'overflow-y-auto'
+          }`}
+        >
           {activeTab === 'home' && (
             <DashboardOverview onNavigate={handleNavigateFromHome} />
           )}
@@ -117,11 +137,7 @@ export default function AppHomePage() {
 
           {activeTab === 'academy' && <AcademyCatalog />}
 
-          {activeTab === 'experts' && (
-            <div className="p-8 max-w-6xl mx-auto overflow-y-auto">
-              <ExpertManagement />
-            </div>
-          )}
+          {activeTab === 'experts' && <ExpertManagement />}
 
           {activeTab === 'projects' && <ProjectsTracker />}
 
