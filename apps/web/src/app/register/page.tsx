@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -22,13 +23,36 @@ export default function RegisterPage() {
     plan: 'growth',
   });
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      window.location.href = '/app';
-    }, 900);
+    setErrorMsg(null);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            org_name: formData.orgName,
+            plan: formData.plan,
+          },
+        },
+      });
+
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+      } else {
+        window.location.href = '/app';
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Registration error.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -113,6 +137,12 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {errorMsg}
+              </div>
+            )}
 
             <button
               type="submit"

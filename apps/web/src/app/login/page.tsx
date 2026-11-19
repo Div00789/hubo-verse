@@ -13,20 +13,35 @@ import {
   Play,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate real auth handshake and redirect to the application
-    setTimeout(() => {
-      window.location.href = '/app';
-    }, 900);
+    setErrorMsg(null);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+      } else {
+        window.location.href = '/app';
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Authentication error.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -113,6 +128,19 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex flex-col gap-1.5">
+                <span>{errorMsg}</span>
+                <Link
+                  href="/app"
+                  className="text-amber-400 font-semibold hover:underline inline-flex items-center gap-1 mt-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Or continue to Demo Workspace without account &rarr;</span>
+                </Link>
+              </div>
+            )}
 
             <button
               type="submit"
