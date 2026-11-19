@@ -10,6 +10,7 @@ import { PortalStatusCard } from '@/components/PortalStatusCard';
 import { AcademyCatalog } from '@/components/AcademyCatalog';
 import { ProjectsTracker } from '@/components/ProjectsTracker';
 import { OrgSettings } from '@/components/OrgSettings';
+import { ExpertManagement } from '@/components/ExpertManagement';
 
 export default function AppHomePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
@@ -26,6 +27,8 @@ export default function AppHomePage() {
         return 'HubSpot Portals';
       case 'academy':
         return 'Learning Academy & Live Classes';
+      case 'experts':
+        return 'Meet Our HubSpot Experts — Directory & Management';
       case 'projects':
         return 'Client Projects';
       case 'settings':
@@ -47,6 +50,8 @@ export default function AppHomePage() {
         return 'Multi-portal connections with encrypted credential storage';
       case 'academy':
         return 'LiveKit cloud workshops and Mux on-demand video masterclasses';
+      case 'experts':
+        return 'Manage certified specialist profiles, professional biographies, skills, and academy courses';
       case 'projects':
         return 'Track implementation roadmaps and expert consultant tasks';
       case 'settings':
@@ -111,6 +116,12 @@ export default function AppHomePage() {
           {activeTab === 'portals' && <PortalStatusCard />}
 
           {activeTab === 'academy' && <AcademyCatalog />}
+
+          {activeTab === 'experts' && (
+            <div className="p-8 max-w-6xl mx-auto overflow-y-auto">
+              <ExpertManagement />
+            </div>
+          )}
 
           {activeTab === 'projects' && <ProjectsTracker />}
 

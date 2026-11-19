@@ -13,10 +13,11 @@ import {
   ChevronDown,
   ExternalLink,
   ShieldAlert,
+  Users,
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 
-export type ActiveTab = 'home' | 'anna' | 'portals' | 'academy' | 'projects' | 'settings';
+export type ActiveTab = 'home' | 'anna' | 'portals' | 'academy' | 'experts' | 'projects' | 'settings';
 
 interface NavigationSidebarProps {
   activeTab: ActiveTab;
@@ -145,6 +146,17 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
           >
             <BookOpen className="w-4 h-4 text-purple-400" />
             <span>Learning Academy</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('experts')}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all mt-1 ${activeTab === 'experts'
+                ? 'bg-[#1E293B] text-white border-l-2 border-[#FF5C00] font-semibold'
+                : 'text-gray-300 hover:bg-[#131B2E] hover:text-white'
+              }`}
+          >
+            <Users className="w-4 h-4 text-[#FF5C00]" />
+            <span>Meet Our Experts</span>
           </button>
 
           <button

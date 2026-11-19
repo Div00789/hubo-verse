@@ -12,6 +12,7 @@ export const SiteHeader: React.FC = () => {
 
   const navLinks = [
     { label: 'Platform', href: '/features' },
+    { label: 'Experts', href: '/experts' },
     { label: 'Anna AI', href: '/anna' },
     { label: 'Academy & LiveKit', href: '/academy' },
     { label: 'Pricing', href: '/pricing' },

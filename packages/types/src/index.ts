@@ -250,8 +250,28 @@ export interface ProjectMilestone {
 }
 
 // ==========================================
-// 6. AUDIT LOGGING
+// 7. HUBSPOT EXPERTS DIRECTORY
 // ==========================================
+export interface ExpertProfile {
+  id: string;
+  userId?: string | null;
+  slug: string;
+  fullName: string;
+  professionalTitle: string;
+  shortBio: string;
+  fullBio: string;
+  yearsExperience: number;
+  experienceDisplay: string;
+  profileImagePath: string;
+  skills: string[];
+  certifications: string[];
+  isActive: boolean;
+  isFeatured: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   organizationId: string;

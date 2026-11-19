@@ -76,6 +76,11 @@ export const SiteFooter: React.FC = () => {
           <div className="text-xs font-bold text-white uppercase tracking-wider">Company</div>
           <ul className="space-y-2 text-gray-400">
             <li>
+              <Link href="/experts" className="hover:text-[#FF5C00] transition-colors">
+                Meet Our Experts
+              </Link>
+            </li>
+            <li>
               <Link href="/about" className="hover:text-[#FF5C00] transition-colors">
                 About HuboVerse
               </Link>

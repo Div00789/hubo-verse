@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Bot,
   Hammer,
@@ -14,9 +15,11 @@ import {
   ShieldCheck,
   ChevronRight,
   TrendingUp,
+  Award,
 } from 'lucide-react';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { DEMO_EXPERTS } from '@huboverse/database';
 
 export default function MarketingHomePage() {
   return (
@@ -240,6 +243,92 @@ export default function MarketingHomePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Meet Our HubSpot Experts Section */}
+        <section className="py-20 px-6 max-w-7xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-mono uppercase text-[#FF5C00] font-bold tracking-wider">
+                <Award className="w-3.5 h-3.5" />
+                <span>Certified HubSpot Practitioners</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-2">
+                Meet Our HubSpot Experts
+              </h2>
+              <p className="text-sm sm:text-base text-gray-400 mt-2 max-w-2xl">
+                Learn from experienced HubSpot professionals who combine practical CRM expertise,
+                advanced automation and modern AI technologies to help businesses grow.
+              </p>
+            </div>
+
+            <Link
+              href="/experts"
+              className="px-5 py-2.5 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] text-white text-xs font-semibold border border-[#1E293B] flex items-center gap-2 transition-colors shrink-0"
+            >
+              <span>Explore All Experts</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#FF5C00]" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {DEMO_EXPERTS.map((expert) => (
+              <div
+                key={expert.id}
+                className="bg-[#0B0F19] border border-[#1E293B] rounded-3xl p-7 hover:border-[#FF5C00]/40 transition-all shadow-xl flex flex-col justify-between group"
+              >
+                <div className="space-y-5">
+                  <div className="flex gap-4 items-center">
+                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-[#1E293B] shrink-0 bg-[#131B2E]">
+                      <Image
+                        src={expert.profileImagePath}
+                        alt={expert.fullName}
+                        fill
+                        className="object-cover object-top"
+                      />
+                    </div>
+                    <div>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#131B2E] text-[#FF5C00] border border-[#1E293B]">
+                        {expert.experienceDisplay}
+                      </span>
+                      <h3 className="text-xl font-bold text-white mt-1 group-hover:text-[#FF5C00] transition-colors">
+                        {expert.fullName}
+                      </h3>
+                      <p className="text-xs text-gray-400 line-clamp-1">{expert.professionalTitle}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-300 leading-relaxed line-clamp-2">
+                    {expert.shortBio}
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {expert.skills.slice(0, 5).map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-2 py-0.5 rounded-md text-[10px] bg-[#101726] border border-[#1E293B] text-gray-300"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-5 mt-5 border-t border-[#1E293B] flex items-center justify-between">
+                  <span className="text-[11px] text-gray-500 font-mono">
+                    {expert.certifications.length > 0 ? expert.certifications[0] : 'Certified Specialist'}
+                  </span>
+                  <Link
+                    href={`/experts/${expert.slug}`}
+                    className="text-xs font-bold text-[#FF5C00] hover:underline flex items-center gap-1"
+                  >
+                    <span>View Profile</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

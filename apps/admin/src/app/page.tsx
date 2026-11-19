@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   ShieldAlert,
   Building2,
@@ -12,8 +13,10 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Video,
+  Users,
 } from 'lucide-react';
 import { DEMO_ORGANIZATION } from '@huboverse/database';
+import { ExpertManagement } from '@/components/ExpertManagement';
 
 export default function AdminDashboardPage() {
   return (
@@ -37,13 +40,13 @@ export default function AdminDashboardPage() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             Supabase RLS & Cluster Operational
           </span>
-          <a
-            href="http://localhost:3001"
+          <Link
+            href="/"
             className="px-3 py-1.5 rounded-lg bg-[#131B2E] border border-[#1E293B] text-gray-300 hover:text-white flex items-center gap-1"
           >
-            <span>Client App View</span>
+            <span>Public Site View</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-[#FF5C00]" />
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -138,6 +141,11 @@ export default function AdminDashboardPage() {
               <span className="text-amber-400 font-bold">BLOCKED_BY_REGISTRY</span>
             </div>
           </div>
+        </div>
+
+        {/* Managed Experts Section */}
+        <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 sm:p-8 shadow-xl">
+          <ExpertManagement />
         </div>
 
         {/* Tenant Organization Table */}

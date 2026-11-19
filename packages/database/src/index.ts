@@ -7,6 +7,7 @@ import type {
   ClientProject,
   AnnaChatMessage,
   AnnaBuildExecution,
+  ExpertProfile,
 } from '@huboverse/types';
 
 export function createSupabaseServerClient(supabaseUrl: string, serviceRoleKey: string) {
@@ -64,14 +65,91 @@ export const DEMO_HUBSPOT_CONNECTION: HubSpotPortalConnection = {
   lastSyncedAt: '2026-11-18T11:00:00Z',
 };
 
+export const DEMO_EXPERTS: ExpertProfile[] = [
+  {
+    id: 'exp_divyanshu_tuli',
+    slug: 'divyanshu-tuli',
+    fullName: 'Divyanshu Tuli',
+    professionalTitle: 'HubSpot & RevOps Certified Expert | AI Automation Specialist',
+    yearsExperience: 10,
+    experienceDisplay: '10+ Years of Experience',
+    profileImagePath: '/experts/divyanshu-tuli.png',
+    shortBio:
+      'HubSpot-certified and RevOps-certified professional with over 10 years of experience in CRM, digital marketing, revenue operations and business automation.',
+    fullBio:
+      'Divyanshu Tuli is a HubSpot-certified and RevOps-certified professional with over 10 years of experience in CRM, digital marketing, revenue operations and business automation.\n\nHe specialises in HubSpot implementation, advanced CRM automation, sales and marketing operations, and AI-powered business solutions.\n\nWith hands-on expertise in the latest HubSpot AI capabilities and modern automation tools, Divyanshu helps businesses streamline processes, improve operational efficiency and build scalable revenue systems.',
+    skills: [
+      'HubSpot CRM',
+      'Revenue Operations (RevOps)',
+      'HubSpot AI Automation',
+      'Marketing Hub',
+      'Sales Hub',
+      'CRM Implementation',
+      'Workflow Automation',
+      'Business Process Automation',
+      'AI Tools and Integrations',
+      'CRM Strategy and Optimisation',
+    ],
+    certifications: ['HubSpot Certified', 'Revenue Operations Certified'],
+    isActive: true,
+    isFeatured: true,
+    displayOrder: 1,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-11-19T00:00:00Z',
+  },
+  {
+    id: 'exp_aadesh_dhall',
+    slug: 'aadesh-dhall',
+    fullName: 'Aadesh Dhall',
+    professionalTitle: 'HubSpot Automation Expert | CRM & AI Tools Specialist',
+    yearsExperience: 3,
+    experienceDisplay: '3+ Years of Experience',
+    profileImagePath: '/experts/aadesh-dhall.jpg',
+    shortBio:
+      'HubSpot Automation Expert with over 3 years of hands-on experience in CRM automation, workflow development and HubSpot implementation.',
+    fullBio:
+      'Aadesh Dhall is a HubSpot Automation Expert with over 3 years of hands-on experience in CRM automation, workflow development and HubSpot implementation.\n\nHe has practical experience working with international clients, helping businesses optimise HubSpot processes, automate repetitive tasks and improve sales and marketing operations.\n\nWith knowledge of the latest HubSpot capabilities and emerging AI tools, Aadesh focuses on building efficient, scalable automation solutions that simplify CRM management and support business growth.',
+    skills: [
+      'HubSpot Automation',
+      'CRM Workflows',
+      'Marketing Automation',
+      'Sales Automation',
+      'HubSpot CRM Management',
+      'AI Tools',
+      'Workflow Optimisation',
+      'CRM Implementation',
+      'International Client Projects',
+      'Business Process Automation',
+    ],
+    certifications: [],
+    isActive: true,
+    isFeatured: true,
+    displayOrder: 2,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-11-19T00:00:00Z',
+  },
+];
+
+export function getExpertBySlug(slug: string): ExpertProfile | undefined {
+  return DEMO_EXPERTS.find((exp) => exp.slug === slug);
+}
+
+export function getCoursesByExpertId(expertId: string): Course[] {
+  return DEMO_COURSES.filter((course) => course.instructorId === expertId);
+}
+
+export function getLiveClassesByExpertId(expertId: string): LiveClass[] {
+  return DEMO_LIVE_CLASSES.filter((cls) => cls.instructorId === expertId);
+}
+
 export const DEMO_COURSES: Course[] = [
   {
     id: 'crs_arch_01',
     slug: 'hubspot-enterprise-data-architecture',
     title: 'Enterprise HubSpot Data Architecture & Custom Objects',
     description: 'Architecting scalable schemas, relationship modeling, and custom object associations for high-volume B2B operations.',
-    instructorId: 'inst_alex',
-    instructorName: 'Alex Thorne (HuboExperts Principal)',
+    instructorId: 'exp_divyanshu_tuli',
+    instructorName: 'Divyanshu Tuli (HubSpot & RevOps Expert)',
     level: 'ADVANCED',
     hubCategory: 'Operations',
     estimatedHours: 4.5,
@@ -85,8 +163,8 @@ export const DEMO_COURSES: Course[] = [
     slug: 'revenue-attribution-and-lead-lifecycle',
     title: 'Advanced Revenue Operations: Multi-Touch Lead Lifecycle',
     description: 'Configure lifecycle stages, MQL-to-SQL automated velocity alerts, and multi-touch pipeline attribution in HubSpot.',
-    instructorId: 'inst_elena',
-    instructorName: 'Elena Rostova (RevOps Architect)',
+    instructorId: 'exp_divyanshu_tuli',
+    instructorName: 'Divyanshu Tuli (RevOps Architect)',
     level: 'INTERMEDIATE',
     hubCategory: 'Marketing',
     estimatedHours: 3.5,
@@ -100,8 +178,8 @@ export const DEMO_COURSES: Course[] = [
     slug: 'complex-workflow-logic-and-webhooks',
     title: 'Complex Workflow Automation, Custom Code Actions & Webhooks',
     description: 'Master webhook triggers, custom Node.js script actions in Operations Hub, and automated CRM error handling.',
-    instructorId: 'inst_marcus',
-    instructorName: 'Marcus Vance (Automation Lead)',
+    instructorId: 'exp_aadesh_dhall',
+    instructorName: 'Aadesh Dhall (Automation Specialist)',
     level: 'ADVANCED',
     hubCategory: 'Operations',
     estimatedHours: 6.0,
@@ -110,6 +188,21 @@ export const DEMO_COURSES: Course[] = [
     rating: 4.98,
     createdAt: '2026-05-01T00:00:00Z',
   },
+  {
+    id: 'crs_auto_04',
+    slug: 'hubspot-crm-process-automation',
+    title: 'HubSpot Process Automation & Scalable CRM Systems',
+    description: 'Hands-on workflow development, eliminating manual CRM bottlenecks, and building scalable automation pipelines.',
+    instructorId: 'exp_aadesh_dhall',
+    instructorName: 'Aadesh Dhall (HubSpot Automation Expert)',
+    level: 'INTERMEDIATE',
+    hubCategory: 'Sales',
+    estimatedHours: 4.0,
+    published: true,
+    totalEnrollments: 198,
+    rating: 4.94,
+    createdAt: '2026-06-15T00:00:00Z',
+  },
 ];
 
 export const DEMO_LIVE_CLASSES: LiveClass[] = [
@@ -117,8 +210,8 @@ export const DEMO_LIVE_CLASSES: LiveClass[] = [
     id: 'live_cls_101',
     title: 'Live Workshop: Designing Clean HubSpot Deal Pipelines with AI',
     description: 'Join HuboExperts lead consultants live as we tear down and reconstruct lead scoring rules and deal stages.',
-    instructorId: 'inst_alex',
-    instructorName: 'Alex Thorne & Anna AI',
+    instructorId: 'exp_divyanshu_tuli',
+    instructorName: 'Divyanshu Tuli & Anna AI',
     roomName: 'huboverse-live-pipeline-masterclass',
     scheduledStartTime: '2026-11-20T17:00:00Z',
     durationMinutes: 90,
@@ -128,16 +221,16 @@ export const DEMO_LIVE_CLASSES: LiveClass[] = [
   },
   {
     id: 'live_cls_102',
-    title: 'Weekly Office Hours: HubSpot Admin Q&A with LiveKit Studio',
-    description: 'Ask any question regarding workflow failures, property normalization, or Anna Build execution safely.',
-    instructorId: 'inst_elena',
-    instructorName: 'Elena Rostova',
-    roomName: 'huboverse-office-hours',
-    scheduledStartTime: '2026-11-22T15:00:00Z',
+    title: 'Live Studio: Real-Time HubSpot Workflow & Trigger Architecture',
+    description: 'Hands-on live debugging of enterprise automation triggers, webhooks, and sales routing rules.',
+    instructorId: 'exp_aadesh_dhall',
+    instructorName: 'Aadesh Dhall',
+    roomName: 'huboverse-workflow-studio',
+    scheduledStartTime: '2026-11-24T16:00:00Z',
     durationMinutes: 60,
-    maxAttendees: 200,
+    maxAttendees: 150,
     status: 'SCHEDULED',
-    livekitRoomId: 'lk_room_9833',
+    livekitRoomId: 'lk_room_9834',
   },
 ];
 
