@@ -291,7 +291,7 @@ export default function MarketingHomePage() {
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#2F6FED]/15 text-[#2F6FED] border border-[#2F6FED]/30">
                         {expert.experienceDisplay}
                       </span>
-                      <h3 className="text-xl font-bold text-white mt-1 group-hover:text-[#2F6FED] transition-colors">
+                      <h3 className="text-xl font-bold text-[#FFFFFF] mt-1">
                         {expert.fullName}
                       </h3>
                       <p className="text-xs text-gray-400 line-clamp-1">{expert.professionalTitle}</p>

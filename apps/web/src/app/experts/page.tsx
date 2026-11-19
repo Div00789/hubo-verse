@@ -107,20 +107,23 @@ export default function ExpertsPage() {
                   {/* Subtle bottom fade into card dark base */}
                   <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/60 to-transparent pointer-events-none" />
 
-                  {/* Overlaid Badges (No Eye Icon) */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2 z-10">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-white text-xs font-semibold shadow-lg">
-                        <Sparkles className="w-3.5 h-3.5 text-[#FF5C00]" />
-                        <span>{expert.experienceDisplay}</span>
+                  {/* Top Badges Overlay: FEATURED on top-left, Experience on top-right */}
+                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2 z-10 pointer-events-none">
+                    {/* Top-Left: FEATURED Badge */}
+                    {expert.isFeatured ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#FF5C00] to-amber-500 text-white text-[11px] font-extrabold tracking-wider uppercase shadow-lg shadow-[#FF5C00]/30 shrink-0 pointer-events-auto">
+                        <Star className="w-3 h-3 fill-white" />
+                        <span>Featured</span>
                       </span>
-                      {expert.isFeatured && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#FF5C00] to-amber-500 text-white text-[11px] font-extrabold tracking-wider uppercase shadow-lg shadow-[#FF5C00]/30">
-                          <Star className="w-3 h-3 fill-white" />
-                          <span>Featured Expert</span>
-                        </span>
-                      )}
-                    </div>
+                    ) : (
+                      <div />
+                    )}
+
+                    {/* Top-Right: Experience Badge */}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-white text-xs font-semibold shadow-lg shrink-0 pointer-events-auto">
+                      <Sparkles className="w-3.5 h-3.5 text-[#FF5C00]" />
+                      <span>{expert.experienceDisplay}</span>
+                    </span>
                   </div>
                 </div>
 
@@ -129,7 +132,7 @@ export default function ExpertsPage() {
                   <div className="space-y-4">
                     {/* Name & Title */}
                     <div className="space-y-1.5">
-                      <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight group-hover:text-blue-400 transition-colors">
+                      <h2 className="text-2xl sm:text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
                         {expert.fullName}
                       </h2>
                       <p className={`text-sm font-semibold ${themeTitleColor} leading-snug`}>

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Play, ExternalLink, X, Film, CheckCircle2, Sparkles } from 'lucide-react';
+import { Play, ExternalLink, Film } from 'lucide-react';
 import type { RecordedExpertVideo } from '@huboverse/types';
+import { VideoPlayerModal } from './VideoPlayerModal';
 
 interface RecordedTrainingSectionProps {
   expertName: string;
@@ -14,7 +15,6 @@ export const RecordedTrainingSection: React.FC<RecordedTrainingSectionProps> = (
   videos,
 }) => {
   const [activeVideo, setActiveVideo] = useState<RecordedExpertVideo | null>(null);
-  const [iframeLoading, setIframeLoading] = useState(true);
 
   if (!videos || videos.length === 0) {
     return null;
@@ -22,11 +22,6 @@ export const RecordedTrainingSection: React.FC<RecordedTrainingSectionProps> = (
 
   const openPlayer = (video: RecordedExpertVideo) => {
     setActiveVideo(video);
-    setIframeLoading(true);
-  };
-
-  const closePlayer = () => {
-    setActiveVideo(null);
   };
 
   return (
@@ -125,85 +120,8 @@ export const RecordedTrainingSection: React.FC<RecordedTrainingSectionProps> = (
         ))}
       </div>
 
-      {/* Modal Video Player with Responsive 16:9 Aspect Ratio */}
-      {activeVideo && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-          <div className="bg-[#0B0F19] border border-[#1E293B] rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between gap-4 bg-[#080D1A]">
-              <div className="space-y-0.5 min-w-0">
-                <span className="text-[10px] font-mono text-[#2F6FED] uppercase tracking-wider font-semibold">
-                  {activeVideo.category}
-                </span>
-                <h3 className="text-base sm:text-lg font-bold text-white truncate">
-                  {activeVideo.title}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={activeVideo.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#131B2E] hover:bg-[#1E293B] text-xs font-semibold text-gray-300 hover:text-white border border-[#1E293B] transition-colors"
-                >
-                  <span>Watch on Loom</span>
-                  <ExternalLink className="w-3 h-3 text-[#2F6FED]" />
-                </a>
-
-                <button
-                  type="button"
-                  onClick={closePlayer}
-                  className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#131B2E] transition-colors"
-                  aria-label="Close video player"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Video Container (16:9 Aspect Ratio) */}
-            <div className="relative w-full pb-[56.25%] bg-black">
-              {iframeLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-xs text-gray-400 bg-[#090D16]">
-                  <div className="w-8 h-8 border-2 border-[#2F6FED] border-t-transparent rounded-full animate-spin" />
-                  <span>Loading Loom video stream...</span>
-                </div>
-              )}
-
-              <iframe
-                src={activeVideo.embedUrl}
-                title={activeVideo.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                onLoad={() => setIframeLoading(false)}
-                className="absolute top-0 left-0 w-full h-full border-0"
-              />
-            </div>
-
-            {/* Modal Footer with Fallback */}
-            <div className="p-4 sm:p-5 border-t border-[#1E293B] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gray-400 bg-[#080D1A]">
-              <p className="text-xs text-gray-300 max-w-xl line-clamp-2">
-                {activeVideo.description}
-              </p>
-
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-[11px] text-gray-500">
-                  Player blocked or taking too long?
-                </span>
-                <a
-                  href={activeVideo.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-bold text-[#2F6FED] hover:underline inline-flex items-center gap-1"
-                >
-                  <span>Open on Loom &rarr;</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Advanced Video Popup Modal with Minimise, Maximise & Close Controls */}
+      <VideoPlayerModal video={activeVideo} onClose={() => setActiveVideo(null)} />
     </section>
   );
 };
