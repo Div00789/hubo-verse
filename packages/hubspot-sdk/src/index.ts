@@ -350,4 +350,7 @@ export class HubSpotEnterpriseClient {
 export * from './client';
 export * from './capability-registry';
 export * from './encryption';
+export * from './pkce';
+export * from './mcp-client';
+export * from './live-data-service';
 

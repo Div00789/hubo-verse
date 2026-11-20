@@ -311,7 +311,7 @@ export const INITIAL_ANNA_MESSAGES: AnnaChatMessage[] = [
     sender: 'ANNA',
     content: `Hello! I am **Anna**, your enterprise HubSpot intelligence partner at **HuboVerse**.
 
-I am connected to your portal **HubSpot Enterprise Sandbox CRM (ID: #44891204)**.
+I am connected to your portal **HubSpot Demo Account (ID: #46100478)**.
 
 I can assist you in two distinct modes:
 - **Chat Mode**: Explore best practices, troubleshoot workflow enrollment failures, or receive step-by-step guidance.
@@ -329,7 +329,7 @@ How can I help accelerate your HubSpot operations today?`,
       {
         id: 'c_init',
         sourceType: 'PORTAL_SCHEMA',
-        title: 'Portal Connection Verified: HuboVerse Sandbox (ID #44891204)',
+        title: 'Portal Connection Verified: HubSpot Demo Account (ID #46100478)',
         snippet: 'Hubs detected: Sales Enterprise, Marketing Pro, Service Pro, Operations Starter.',
       },
     ],
@@ -371,7 +371,7 @@ export const DEMO_BUILD_EXECUTION: AnnaBuildExecution = {
 };
 
 // ============================================================================
-// 8. VERIFIED PORTAL SCHEMA REGISTRY (Portal #44891204 - Sandbox CRM)
+// 8. VERIFIED PORTAL SCHEMA REGISTRY (Portal #46100478 - HubSpot Demo Account)
 // ============================================================================
 export const DEMO_PORTAL_SCHEMA_REGISTRY: PortalSchemaRegistry = {
   portalId: '46100478',
@@ -495,7 +495,6 @@ export const DEMO_PORTAL_SCHEMA_REGISTRY: PortalSchemaRegistry = {
 // In-memory runtime stores for portal schema and deployments (synced with Supabase tables)
 let runtimeSchemaRegistry: Record<string, PortalSchemaRegistry> = {
   '46100478': DEMO_PORTAL_SCHEMA_REGISTRY,
-  '44891204': DEMO_PORTAL_SCHEMA_REGISTRY,
 };
 
 let runtimeDeployments: WorkflowDeploymentRecord[] = [

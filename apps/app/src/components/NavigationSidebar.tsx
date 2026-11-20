@@ -199,7 +199,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
             </span>
           </div>
           <div className="text-xs text-white font-medium truncate mt-0.5">{portalName}</div>
-          <div className="text-[10px] text-gray-400 font-mono">Portal #44891204</div>
+          <div className="text-[10px] text-gray-400 font-mono">Portal #46100478</div>
         </div>
       </div>
     </aside>

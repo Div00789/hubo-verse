@@ -133,7 +133,15 @@ export default function AppHomePage() {
             />
           )}
 
-          {activeTab === 'portals' && <PortalStatusCard />}
+          {activeTab === 'portals' && (
+            <PortalStatusCard
+              onSelectPortalForAnna={(_portalId) => {
+                setActiveTab('anna');
+                setAnnaMode('CHAT');
+              }}
+              onOpenBuildWithPrompt={(prompt) => handleSwitchToBuild(prompt)}
+            />
+          )}
 
           {activeTab === 'academy' && <AcademyCatalog />}
 

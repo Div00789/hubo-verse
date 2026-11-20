@@ -495,3 +495,115 @@ export interface AuditLogEntry {
   ipAddress?: string;
   timestamp: string;
 }
+
+// ==========================================
+// 8. HUBSPOT MCP & PORTAL HEALTH TYPES
+// ==========================================
+export type MetricVerificationStatus =
+  | 'verified'
+  | 'partial'
+  | 'unavailable'
+  | 'permission_denied'
+  | 'unsupported'
+  | 'stale'
+  | 'error';
+
+export interface StructuredMetricResponse {
+  portalId: string;
+  metric: string;
+  value: any;
+  status: MetricVerificationStatus;
+  source: string;
+  retrievedAt: string;
+  isComplete: boolean;
+  filtersApplied: string[];
+  limitations: string[];
+  displayTitle?: string;
+  summary?: string;
+  breakdown?: Array<{ label: string; count: number | string; percentage?: string }>;
+  rawCount?: number;
+}
+
+export interface PortalAuditFinding {
+  id: string;
+  category: 'CRM_DATA' | 'SALES' | 'AUTOMATION' | 'MARKETING';
+  title: string;
+  observedValue: string | number;
+  dataSource: string;
+  evidence: string;
+  businessImpact: string;
+  recommendation: string;
+  severity: 'CRITICAL' | 'WARNING' | 'INFO' | 'GOOD';
+  retrievedAt: string;
+  coverage: string;
+  limitations: string[];
+}
+
+export interface PortalAuditReport {
+  portalId: string;
+  portalName: string;
+  retrievedAt: string;
+  summary: {
+    totalContacts: number | 'UNAVAILABLE';
+    totalCompanies: number | 'UNAVAILABLE';
+    totalDeals: number | 'UNAVAILABLE';
+    openDeals: number | 'UNAVAILABLE';
+    closedWonDeals: number | 'UNAVAILABLE';
+    pipelineValue: string | 'UNAVAILABLE';
+    unassignedContacts: number | 'UNAVAILABLE';
+    totalPipelines: number | 'UNAVAILABLE';
+    activeWorkflows: number | 'UNAVAILABLE';
+  };
+  findings: PortalAuditFinding[];
+}
+
+export interface PortalHealthRecommendation {
+  id: string;
+  category: 'CRM_OVERVIEW' | 'SALES_HEALTH' | 'MARKETING_HEALTH' | 'DATA_QUALITY' | 'AUTOMATION_OPPORTUNITIES';
+  finding: string;
+  evidence: string;
+  businessImpact: string;
+  recommendedAction: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  canAnnaExecute: boolean;
+  requiresHumanAssistance: boolean;
+  status: 'PENDING' | 'APPROVED' | 'RESOLVED' | 'DISMISSED';
+}
+
+export interface PortalHealthAnalysis {
+  id: string;
+  organizationId: string;
+  connectionId: string;
+  portalId: string;
+  analyzedAt: string;
+  crmOverview: {
+    totalContacts: number;
+    totalCompanies: number;
+    totalDeals: number;
+    totalPipelines: number;
+    totalWorkflows: number;
+  };
+  salesHealth: {
+    activeDealsCount: number;
+    staleDealsCount: number;
+    unassignedDealsCount: number;
+    pipelineStageDistribution: Record<string, number>;
+  };
+  marketingHealth: {
+    leadsThisMonth: number;
+    lifecycleStageDistribution: Record<string, number>;
+    segmentationListsCount: number;
+  };
+  dataQuality: {
+    missingImportantFieldsPercentage: number;
+    unassignedContactsCount: number;
+    duplicateSuspectsCount: number;
+  };
+  automationOpportunities: {
+    workflowsActive: number;
+    conflictingEnrollmentRulesCount: number;
+    recommendedAutomations: string[];
+  };
+  recommendations: PortalHealthRecommendation[];
+}
+

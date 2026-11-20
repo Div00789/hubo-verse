@@ -14,6 +14,7 @@ import {
   checkCapability,
   HubSpotEnterpriseClient,
   HubSpotCrmQueryService,
+  HubSpotLiveDataService,
   HubSpotWorkflowAdapter,
 } from '@huboverse/hubspot-sdk';
 import {
@@ -461,7 +462,7 @@ export interface ChatGraphState {
 }
 
 export async function runAnnaChatStep(state: ChatGraphState): Promise<ChatGraphState> {
-  const portalId = state.portalContext?.portalId || '44891204';
+  const portalId = state.portalContext?.portalId || '46100478';
   const queryLower = state.userQuery.toLowerCase();
 
   // Mode boundary defense: Reject any attempt to perform mutations in Chat Mode
@@ -491,41 +492,161 @@ To safely synthesize, preview dry-run diffs, and deploy this change:
     };
   }
 
-  // Dispatch to real CRM query service
-  const queryService = new HubSpotCrmQueryService();
-  const crmResult = await queryService.answerChatQuery(state.userQuery, portalId);
+  // Intent Classification: Check if question is a General HubSpot educational question
+  const isGeneralQuestion =
+    (queryLower.startsWith('what is ') ||
+      queryLower.startsWith('what are ') ||
+      queryLower.startsWith('how do i ') ||
+      queryLower.startsWith('how to ') ||
+      queryLower.startsWith('explain ') ||
+      queryLower.includes('difference between')) &&
+    !queryLower.includes('my ') &&
+    !queryLower.includes('our ') &&
+    !queryLower.includes('in portal') &&
+    !queryLower.includes('how many') &&
+    !queryLower.includes('audit');
 
-  // Format into rich, executive-grade Markdown with tables and metrics
+  if (isGeneralQuestion) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey && apiKey.startsWith('sk-') && !apiKey.includes('demo')) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: `You are Anna AI, enterprise HubSpot architecture advisor for HuboVerse.
+Answer this general HubSpot question accurately with practical best practices and structured steps.
+Keep your response neat, clean, and simple. Use concise bullet points with bold keywords.
+Do NOT use markdown tables (|---|), conversational filler, or polite sign-offs.`,
+              },
+              { role: 'user', content: state.userQuery },
+            ],
+            max_tokens: 600,
+            temperature: 0.3,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          const generalReply = data.choices?.[0]?.message?.content;
+          if (generalReply) {
+            return {
+              ...state,
+              responseMarkdown: generalReply,
+              suggestedPrompts: [
+                'How many contacts are in my HubSpot portal?',
+                'Show me all deals in my portal.',
+                'Audit my complete HubSpot portal.',
+              ],
+              tokensConsumed: 250,
+            };
+          }
+        }
+      } catch {
+        // Fallback to deterministic query engine
+      }
+    }
+  }
+
+  // Dispatch to real CRM live data service
+  const liveDataService = new HubSpotLiveDataService(portalId);
+  const crmResult = await liveDataService.answerChatQuery(state.userQuery, portalId);
+
+  // Format into neat, clean, simple structured Markdown (no messy table pipes)
   let markdown = `### ${crmResult.title}\n\n`;
-  markdown += `> **Source**: \`${crmResult.source}\` ${crmResult.period ? `• *Period: ${crmResult.period}*` : ''}\n\n`;
   markdown += `${crmResult.summary}\n\n`;
 
-  // Render Metric Cards if present
+  // Render Key CRM Metrics
   if (crmResult.metrics && crmResult.metrics.length > 0) {
-    markdown += `| Metric | Value | Detail |\n| :--- | :--- | :--- |\n`;
+    markdown += `**Key CRM Metrics:**\n`;
     for (const m of crmResult.metrics) {
-      markdown += `| **${m.label}** | \`${m.value}\` | ${m.change || m.subtext || '-'} |\n`;
+      const note = m.change || m.subtext ? ` — ${m.change || m.subtext}` : '';
+      markdown += `• **${m.label}**: **${m.value}**${note}\n`;
     }
     markdown += `\n`;
   }
 
-  // Render Data Table if present
-  if (crmResult.tableHeaders && crmResult.tableRows) {
-    markdown += `| ${crmResult.tableHeaders.join(' | ')} |\n`;
-    markdown += `| ${crmResult.tableHeaders.map(() => ':---').join(' | ')} |\n`;
-    for (const row of crmResult.tableRows) {
-      markdown += `| ${row.join(' | ')} |\n`;
-    }
-    markdown += `\n`;
-  }
-
-  // Render Key Strategic Insights
+  // Render Strategic Context
   if (crmResult.insights && crmResult.insights.length > 0) {
-    markdown += `#### Key Insights\n`;
-    for (const insight of crmResult.insights) {
-      markdown += `- ${insight}\n`;
+    markdown += `**Actionable Insights:**\n`;
+    for (const insight of crmResult.insights.slice(0, 2)) {
+      markdown += `• ${insight}\n`;
     }
     markdown += `\n`;
+  }
+
+  // Real OpenAI LLM synthesis when OPENAI_API_KEY is configured
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey && apiKey.startsWith('sk-') && !apiKey.includes('demo')) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are Anna AI, the enterprise HubSpot CRM intelligence partner for HuboVerse.
+Connected Portal: HubSpot Demo Account (ID: #${portalId})
+Authorized User: Div Tuli (div@huboexperts.com)
+
+CORE INSTRUCTION:
+Provide a NEAT, CLEAN, CRISP, AND SIMPLE executive answer based strictly on this verified CRM fact-sheet:
+${JSON.stringify(crmResult, null, 2)}
+
+STRICT FORMATTING RULES:
+1. NEVER output markdown table pipes (| col | col |) or dash lines (|---|---|). No ASCII tables!
+2. NEVER include "Suggested Follow-Ups" or list suggested questions in your response body (the user interface displays clickable suggestion buttons directly below).
+3. NEVER include conversational filler or polite closing boilerplate (e.g. "Here is a breakdown", "If you need further assistance...", "Feel free to ask!").
+4. Structure EVERY response cleanly into these 2 or 3 brief parts:
+
+### [Clean Title]
+[Direct, punchy 1-sentence answer with the verified number in **bold** and portal #${portalId} cited.]
+
+**Key CRM Metrics:**
+• **[Metric Name]**: **[Value]** — [Short 3-5 word note]
+• **[Metric Name]**: **[Value]** — [Short 3-5 word note]
+
+**Actionable Insight:** (Only include if there is a concrete action, warning, or permission restriction; max 1-2 bullet points)
+• [Clear, direct note]`,
+            },
+            {
+              role: 'user',
+              content: state.userQuery,
+            },
+          ],
+          max_tokens: 450,
+          temperature: 0.2,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        const aiMessage = data.choices?.[0]?.message?.content;
+        if (aiMessage && aiMessage.trim().length > 0) {
+          markdown = aiMessage.trim();
+        }
+      }
+    } catch {
+      // Graceful fallback to deterministic grounded markdown
+    }
   }
 
   return {
