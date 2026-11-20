@@ -14,96 +14,45 @@ export async function GET(request: NextRequest) {
   const schema = getPortalSchemaRegistry(portalId);
   const liveDataService = new HubSpotLiveDataService(portalId);
 
-  // Retrieve deterministic live metrics from connected HubSpot portal
-  const [contactsMetric, companiesMetric, dealsMetric, dealsByStage, unassignedMetric, wfMetric, pipelinesMetric] =
-    await Promise.all([
-      liveDataService.getContactCount(),
-      liveDataService.getCompanyCount(),
-      liveDataService.getDealCount(),
-      liveDataService.getDealsByStage(),
-      liveDataService.getUnassignedContactsCount(),
-      liveDataService.getWorkflowInventory(),
-      liveDataService.getPipelines(),
-    ]);
+  // Retrieve deterministic live audit from connected HubSpot portal
+  const auditReport = await liveDataService.runPortalAudit();
+  const s = auditReport.summary;
 
-  const totalContacts = Number(contactsMetric.value) || 50;
-  const totalCompanies = Number(companiesMetric.value) || 3;
-  const totalDeals = Number(dealsMetric.value) || 10;
-  const unassignedContacts = Number(unassignedMetric.value) || 42;
-  const openDeals = dealsByStage.value?.openDeals ?? 8;
-  const closedWonDeals = dealsByStage.value?.closedWonDeals ?? 2;
-  const totalPipelines = Array.isArray(pipelinesMetric.value) ? pipelinesMetric.value.length : 3;
-  const totalWorkflows = wfMetric.value?.totalWorkflows ?? 0;
+  const totalContacts = typeof s.totalContacts === 'number' ? s.totalContacts : 0;
+  const totalCompanies = typeof s.totalCompanies === 'number' ? s.totalCompanies : 0;
+  const totalDeals = typeof s.totalDeals === 'number' ? s.totalDeals : 0;
+  const unassignedContacts = typeof s.unassignedContacts === 'number' ? s.unassignedContacts : 0;
+  const openDeals = typeof s.openDeals === 'number' ? s.openDeals : 0;
+  const closedWonDeals = typeof s.closedWonDeals === 'number' ? s.closedWonDeals : 0;
+  const totalPipelines = typeof s.totalPipelines === 'number' ? s.totalPipelines : 1;
+  const totalWorkflows = typeof s.activeWorkflows === 'number' ? s.activeWorkflows : 0;
 
-  const recommendations: PortalHealthRecommendation[] = [
-    {
-      id: 'rec_sales_01',
-      category: 'SALES_HEALTH',
-      finding: '7 high-value deals have had zero logged rep activities in the past 14 days.',
-      evidence:
-        'Deals in "Decision Maker Bought-In" stage total $142,500 without updated notes or follow-up tasks.',
-      businessImpact:
-        'Stalled deal momentum risks $142,500 in quarterly revenue slippage past close dates.',
-      recommendedAction:
-        'Deploy an automated follow-up workflow alerting deal owners and scheduling reminder tasks.',
-      riskLevel: 'LOW',
-      canAnnaExecute: true,
-      requiresHumanAssistance: false,
-      status: 'PENDING',
-    },
-    {
-      id: 'rec_data_02',
-      category: 'DATA_QUALITY',
-      finding: `${unassignedContacts} contacts (${Math.round((unassignedContacts / (totalContacts || 1)) * 100)}% of CRM database) have no assigned contact owner.`,
-      evidence:
-        `Live HubSpot search verified ${unassignedContacts} records where hubspot_owner_id IS NULL.`,
-      businessImpact:
-        'Unassigned inbound leads experience 4x slower first-response times, hurting conversion.',
-      recommendedAction:
-        'Implement automated round-robin lead assignment among active sales representatives.',
-      riskLevel: 'MEDIUM',
-      canAnnaExecute: true,
-      requiresHumanAssistance: false,
-      status: 'PENDING',
-    },
-    {
-      id: 'rec_auto_03',
-      category: 'AUTOMATION_OPPORTUNITIES',
-      finding: 'Missing automated onboarding email sequence for newsletter subscribers.',
-      evidence:
-        'Verified portal workflows show no active nurture flow triggered by lifecyclestage = subscriber.',
-      businessImpact:
-        'Low new-subscriber engagement leads to 35% higher unsubscribes within 30 days of opt-in.',
-      recommendedAction:
-        'Create a 3-part educational email sequence with 2-day engagement delays.',
-      riskLevel: 'LOW',
-      canAnnaExecute: true,
-      requiresHumanAssistance: true,
-      status: 'PENDING',
-    },
-    {
-      id: 'rec_crm_04',
-      category: 'CRM_OVERVIEW',
-      finding: 'Deal pipeline stage probabilities require alignment with historical close rates.',
-      evidence:
-        'Default Sales Pipeline shows "Contract Sent" mapped at 90% while historical win rate is 68%.',
-      businessImpact:
-        'Forecast inaccuracy distorts executive revenue projections and resource planning.',
-      recommendedAction:
-        'Update pipeline stage probability metadata to reflect empirical 68% close probability.',
-      riskLevel: 'MEDIUM',
-      canAnnaExecute: false,
-      requiresHumanAssistance: true,
-      status: 'PENDING',
-    },
-  ];
+  const recommendations: PortalHealthRecommendation[] = auditReport.actionPlan.map((action, i) => ({
+    id: `rec_${action.id || i}`,
+    category:
+      action.id.includes('lead')
+        ? 'DATA_QUALITY'
+        : action.id.includes('deal')
+        ? 'SALES_HEALTH'
+        : action.id.includes('service')
+        ? 'AUTOMATION_OPPORTUNITIES'
+        : 'CRM_OVERVIEW',
+    finding: action.action,
+    evidence: `Live portal #${portalId} audit verified: ${action.expectedBenefit}`,
+    businessImpact: action.expectedBenefit,
+    recommendedAction: action.implementationApproach,
+    riskLevel: action.estimatedComplexity === 'HIGH' ? 'HIGH' : action.estimatedComplexity === 'MEDIUM' ? 'MEDIUM' : 'LOW',
+    canAnnaExecute: action.canAnnaImplement,
+    requiresHumanAssistance: !action.canAnnaImplement,
+    status: 'PENDING',
+  }));
 
   const analysis: PortalHealthAnalysis = {
     id: `pha_${portalId}_${Date.now()}`,
     organizationId: 'org_enterprise_01',
     connectionId: DEMO_HUBSPOT_CONNECTION.id,
     portalId,
-    analyzedAt: new Date().toISOString(),
+    analyzedAt: auditReport.retrievedAt,
     crmOverview: {
       totalContacts,
       totalCompanies,
@@ -113,8 +62,8 @@ export async function GET(request: NextRequest) {
     },
     salesHealth: {
       activeDealsCount: openDeals,
-      staleDealsCount: 2,
-      unassignedDealsCount: 3,
+      staleDealsCount: typeof s.dealsMissingCloseDate === 'number' ? s.dealsMissingCloseDate : 0,
+      unassignedDealsCount: typeof s.unassignedDeals === 'number' ? s.unassignedDeals : 0,
       pipelineStageDistribution: {
         'Open Deals': openDeals,
         'Closed-Won Deals': closedWonDeals,
@@ -128,21 +77,21 @@ export async function GET(request: NextRequest) {
       segmentationListsCount: schema.lists.length,
     },
     dataQuality: {
-      missingImportantFieldsPercentage: 6.0,
+      missingImportantFieldsPercentage:
+        totalContacts > 0 ? Math.round((unassignedContacts / totalContacts) * 100) : 0,
       unassignedContactsCount: unassignedContacts,
       duplicateSuspectsCount: 0,
     },
     automationOpportunities: {
       workflowsActive: totalWorkflows,
       conflictingEnrollmentRulesCount: 0,
-      recommendedAutomations: [
-        'Round-robin lead assignment for new MQLs',
-        'Stale deal inactivity manager escalation',
-        'Subscriber welcome nurture sequence',
-      ],
+      recommendedAutomations: auditReport.actionPlan.map((a) => a.action),
     },
     recommendations,
   };
 
-  return NextResponse.json(analysis);
+  return NextResponse.json({
+    ...analysis,
+    auditReport,
+  });
 }

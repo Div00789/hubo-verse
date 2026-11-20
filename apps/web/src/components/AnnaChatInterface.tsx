@@ -177,14 +177,14 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const suggestedQuickQuestions = [
+    'Audit my complete HubSpot portal.',
     'How many contacts are in my HubSpot portal?',
-    'How many new leads were created this month?',
-    'Show me deals closing this week.',
-    'Which deals have no recent activity?',
-    'What workflows are currently active?',
-    'Show my sales pipelines and deal stages.',
+    'How many companies are there?',
+    'How many deals are open?',
+    'What is the total deal pipeline value?',
     'Which contacts have no assigned owner?',
-    'Which sales representatives have the highest deal values?',
+    'Show my sales pipelines and deal stages.',
+    'What workflows are currently active?',
   ];
 
   const handleSend = async (textToSend?: string) => {

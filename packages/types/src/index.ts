@@ -526,35 +526,85 @@ export interface StructuredMetricResponse {
 
 export interface PortalAuditFinding {
   id: string;
-  category: 'CRM_DATA' | 'SALES' | 'AUTOMATION' | 'MARKETING';
+  category: 'CRM_DATA' | 'SALES' | 'AUTOMATION' | 'MARKETING' | 'SERVICE';
   title: string;
   observedValue: string | number;
   dataSource: string;
   evidence: string;
+  affectedRecords?: number;
   businessImpact: string;
   recommendation: string;
-  severity: 'CRITICAL' | 'WARNING' | 'INFO' | 'GOOD';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'WARNING' | 'INFO' | 'GOOD';
   retrievedAt: string;
   coverage: string;
   limitations: string[];
+  buildModePrompt?: string;
+}
+
+export interface VerifiedStatisticItem {
+  metric: string;
+  actualValue: string | number;
+  dataSource: string;
+  retrievedAt: string;
+  status: MetricVerificationStatus;
+  notes?: string;
+}
+
+export interface PortalAuditActionItem {
+  id: string;
+  action: string;
+  expectedBenefit: string;
+  implementationApproach: string;
+  estimatedComplexity: 'LOW' | 'MEDIUM' | 'HIGH';
+  requiredPermissions: string;
+  apiSupportStatus: 'SUPPORTED' | 'RESTRICTED' | 'MANUAL_ONLY';
+  canAnnaImplement: boolean;
+  requiresHumanApproval: boolean;
+  buildModePrompt?: string;
 }
 
 export interface PortalAuditReport {
   portalId: string;
   portalName: string;
   retrievedAt: string;
+  portalInfo: {
+    accountName: string;
+    portalId: string;
+    auditDate: string;
+    connectionStatus: 'VERIFIED' | 'CONNECTED' | 'ERROR';
+    availablePermissions: string[];
+    auditCoverage: string;
+  };
+  verifiedStatistics: VerifiedStatisticItem[];
   summary: {
     totalContacts: number | 'UNAVAILABLE';
     totalCompanies: number | 'UNAVAILABLE';
     totalDeals: number | 'UNAVAILABLE';
+    totalTickets: number | 'UNAVAILABLE';
+    totalOwners: number | 'UNAVAILABLE';
     openDeals: number | 'UNAVAILABLE';
     closedWonDeals: number | 'UNAVAILABLE';
     pipelineValue: string | 'UNAVAILABLE';
     unassignedContacts: number | 'UNAVAILABLE';
+    unassignedCompanies: number | 'UNAVAILABLE';
+    unassignedDeals: number | 'UNAVAILABLE';
+    contactsMissingEmail: number | 'UNAVAILABLE';
+    dealsMissingAmount: number | 'UNAVAILABLE';
+    dealsMissingCloseDate: number | 'UNAVAILABLE';
     totalPipelines: number | 'UNAVAILABLE';
+    totalDealStages: number | 'UNAVAILABLE';
+    totalWorkflows: number | 'UNAVAILABLE';
     activeWorkflows: number | 'UNAVAILABLE';
+    inactiveWorkflows: number | 'UNAVAILABLE';
   };
   findings: PortalAuditFinding[];
+  prioritizedRecommendations: {
+    critical: PortalAuditFinding[];
+    high: PortalAuditFinding[];
+    medium: PortalAuditFinding[];
+    low: PortalAuditFinding[];
+  };
+  actionPlan: PortalAuditActionItem[];
 }
 
 export interface PortalHealthRecommendation {

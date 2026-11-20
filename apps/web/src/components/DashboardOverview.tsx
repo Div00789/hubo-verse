@@ -45,6 +45,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
           <div className="flex flex-wrap items-center gap-3">
             <button
+              onClick={() => onNavigate('portals')}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Live Portal Audit</span>
+            </button>
+            <button
               onClick={() => onNavigate('anna', 'CHAT')}
               className="px-4 py-2.5 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] text-white text-xs font-semibold border border-[#1E293B] flex items-center gap-2 transition-colors shadow-md"
             >

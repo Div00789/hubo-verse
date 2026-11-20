@@ -61,7 +61,7 @@ export const PortalStatusCard: React.FC<{
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isOAuthConfigured, setIsOAuthConfigured] = useState(true);
-  const [showHealthDashboard, setShowHealthDashboard] = useState(false);
+  const [showHealthDashboard, setShowHealthDashboard] = useState(true);
 
   const activeConnection =
     connections.find((c) => c.portalId === selectedPortalId) || connections[0];
