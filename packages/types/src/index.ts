@@ -170,6 +170,204 @@ export interface AnnaBuildExecution {
 }
 
 // ==========================================
+// 3B. HUBOVERSE WORKFLOW BLUEPRINT & EXECUTION (BUILD MODE)
+// ==========================================
+export type WorkflowBlueprintStatus =
+  | 'READY'
+  | 'NEEDS_CLARIFICATION'
+  | 'UNSUPPORTED_ACTION'
+  | 'UNSUPPORTED_PLAN';
+
+export type InternalWorkflowActionType =
+  | 'DELAY'
+  | 'SET_PROPERTY'
+  | 'CREATE_TASK'
+  | 'SEND_INTERNAL_NOTIFICATION'
+  | 'SEND_MARKETING_EMAIL'
+  | 'ADD_TO_LIST'
+  | 'REMOVE_FROM_LIST'
+  | 'IF_THEN_BRANCH';
+
+export type InternalWorkflowType = 'CONTACT_FLOW' | 'PLATFORM_FLOW';
+export type InternalObjectType = 'CONTACT' | 'DEAL' | 'COMPANY' | 'TICKET';
+
+export interface WorkflowFilter {
+  property: string;
+  operator: 'EQ' | 'NEQ' | 'CONTAINS' | 'IS_KNOWN' | 'IS_UNKNOWN' | 'GT' | 'LT' | 'BETWEEN' | string;
+  value?: any;
+}
+
+export interface EnrollmentTrigger {
+  logic: 'AND' | 'OR';
+  filters: WorkflowFilter[];
+}
+
+export interface WorkflowStep {
+  stepId: string;
+  actionType: InternalWorkflowActionType;
+  description: string;
+  fields: {
+    // DELAY
+    duration_value?: number;
+    duration_unit?: 'MINUTES' | 'HOURS' | 'DAYS';
+    // SET_PROPERTY
+    property_name?: string;
+    value?: any;
+    // CREATE_TASK
+    subject?: string;
+    body?: string;
+    task_type?: 'CALL' | 'EMAIL' | 'TODO';
+    owner_id?: string | null;
+    due_in_days?: number;
+    // SEND_INTERNAL_NOTIFICATION
+    recipient_owner_ids?: string[];
+    message?: string;
+    // SEND_MARKETING_EMAIL
+    email_id?: string;
+    // ADD_TO_LIST / REMOVE_FROM_LIST
+    list_id?: string;
+    // IF_THEN_BRANCH
+    branch_name?: string;
+    conditions?: WorkflowFilter[];
+    true_next_step_id?: string | null;
+    false_next_step_id?: string | null;
+    [key: string]: any;
+  };
+  nextStepId: string | null;
+}
+
+export interface WorkflowDefinition {
+  name: string;
+  type: InternalWorkflowType;
+  objectType: InternalObjectType;
+  isEnabled: false; // Must ALWAYS be false initially!
+  reEnrollment: boolean;
+  enrollmentTrigger: EnrollmentTrigger;
+  startStepId: string;
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowBlueprint {
+  status: WorkflowBlueprintStatus;
+  clarification_question: string | null;
+  missing_dependencies: string[];
+  summary: string;
+  workflow: WorkflowDefinition | null;
+}
+
+// --- Portal Schema Registry Types ---
+export interface HubSpotPropertyMetadata {
+  name: string;
+  label: string;
+  type: string;
+  fieldType: string;
+  description?: string;
+  options?: Array<{ label: string; value: string }>;
+  readOnly: boolean;
+  calculated: boolean;
+}
+
+export interface HubSpotPipelineMetadata {
+  id: string;
+  label: string;
+  stages: Array<{
+    id: string;
+    label: string;
+    probability: number;
+    displayOrder: number;
+  }>;
+}
+
+export interface HubSpotOwnerMetadata {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  userId?: number;
+  teams?: Array<{ id: string; name: string }>;
+}
+
+export interface HubSpotListMetadata {
+  listId: string;
+  name: string;
+  dynamic: boolean;
+  size: number;
+}
+
+export interface HubSpotWorkflowSummary {
+  id: string;
+  name: string;
+  type: string;
+  isEnabled: boolean;
+  insertedAt?: string;
+  updatedAt?: string;
+}
+
+export interface PortalSchemaRegistry {
+  portalId: string;
+  portalName: string;
+  refreshedAt: string;
+  properties: Record<string, HubSpotPropertyMetadata[]>; // keyed by objectType: contacts, companies, deals, tickets
+  pipelines: Record<string, HubSpotPipelineMetadata[]>; // deals, tickets
+  owners: HubSpotOwnerMetadata[];
+  lists: HubSpotListMetadata[];
+  marketingEmails?: Array<{ id: string; name: string; isAvailable: boolean }>;
+  existingWorkflows: HubSpotWorkflowSummary[];
+}
+
+// --- Workflow Deployment & Verification Types ---
+export type WorkflowDeploymentStatus =
+  | 'PLANNING'
+  | 'NEEDS_CLARIFICATION'
+  | 'VALIDATING'
+  | 'READY_FOR_APPROVAL'
+  | 'APPROVED'
+  | 'DEPLOYING'
+  | 'CREATED_INACTIVE'
+  | 'VERIFICATION_FAILED'
+  | 'DEPLOYMENT_FAILED'
+  | 'ACTIVATION_PENDING'
+  | 'ACTIVE';
+
+export interface WorkflowDeploymentRecord {
+  id: string;
+  organizationId: string;
+  portalId: string;
+  blueprintId: string;
+  blueprintVersion: number;
+  idempotencyKey: string;
+  blueprintHash: string;
+  hubspotWorkflowId?: string;
+  status: WorkflowDeploymentStatus;
+  deepLink?: string;
+  readbackVerified: boolean;
+  verificationNotes?: string;
+  errorMessage?: string;
+  deployedAt?: string;
+  verifiedAt?: string;
+}
+
+// --- CRM Data Query & Response Types (Chat Mode) ---
+export interface CrmMetricCard {
+  label: string;
+  value: string | number;
+  change?: string;
+  subtext?: string;
+}
+
+export interface CrmDataResult {
+  title: string;
+  summary: string;
+  source: string;
+  period?: string;
+  metrics?: CrmMetricCard[];
+  tableHeaders?: string[];
+  tableRows?: Array<Array<string | number>>;
+  insights?: string[];
+  suggestedFollowUps?: string[];
+}
+
+// ==========================================
 // 4. LEARNING ACADEMY & LIVE TRAINING
 // ==========================================
 export interface Course {

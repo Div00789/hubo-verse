@@ -39,7 +39,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               Executive Overview Dashboard
             </h1>
             <p className="text-xs sm:text-sm text-gray-300 max-w-xl leading-relaxed">
-              Connected to <strong>Portal #44891204</strong> (Sales Enterprise &amp; Marketing Pro). Anna AI is primed to diagnose CRM workflows, analyze pipeline velocity, and safely commit verified schema mutations.
+              Connected to <strong>Portal #46100478</strong> (HubSpot Demo Account). Anna AI is primed to diagnose CRM workflows, analyze pipeline velocity, and safely commit verified schema mutations.
             </p>
           </div>
 
@@ -78,7 +78,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
           <div className="text-lg font-bold text-white mt-2">Active &amp; Verified</div>
           <div className="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
-            <span className="font-mono text-gray-300">Portal #44891204</span>
+            <span className="font-mono text-gray-300">Portal #46100478</span>
             <span className="text-emerald-400 group-hover:underline">Inspect &rarr;</span>
           </div>
         </div>

@@ -9,6 +9,9 @@ import type {
   AnnaBuildExecution,
   ExpertProfile,
   RecordedExpertVideo,
+  PortalSchemaRegistry,
+  WorkflowBlueprint,
+  WorkflowDeploymentRecord,
 } from '@huboverse/types';
 
 export function createSupabaseServerClient(supabaseUrl: string, serviceRoleKey: string) {
@@ -39,19 +42,24 @@ export const DEMO_ORGANIZATION: Organization = {
 };
 
 export const DEMO_HUBSPOT_CONNECTION: HubSpotPortalConnection = {
-  id: 'conn_hs_98124',
+  id: 'conn_hs_46100478',
   organizationId: 'org_enterprise_01',
-  portalId: '44891204',
-  portalName: 'HubSpot Enterprise Sandbox CRM',
-  hubspotDomain: 'sandbox-44891204.hubspot.com',
+  portalId: '46100478',
+  portalName: 'HubSpot Demo Account',
+  hubspotDomain: 'app.hubspot.com/reports-dashboard/46100478',
   installedScopes: [
     'crm.objects.contacts.read',
     'crm.objects.contacts.write',
+    'crm.schemas.contacts.read',
     'crm.schemas.contacts.write',
-    'crm.schemas.custom.read',
     'crm.objects.deals.read',
     'crm.objects.deals.write',
+    'crm.schemas.deals.read',
+    'crm.objects.companies.read',
+    'crm.objects.owners.read',
     'automation',
+    'crm.lists.read',
+    'crm.lists.write',
   ],
   hubs: {
     Marketing: 'Professional',
@@ -61,9 +69,9 @@ export const DEMO_HUBSPOT_CONNECTION: HubSpotPortalConnection = {
     CMS: 'Starter',
   },
   status: 'CONNECTED',
-  connectedByUserId: 'usr_sarah_cto',
+  connectedByUserId: 'div@huboexperts.com',
   connectedAt: '2026-02-01T12:00:00Z',
-  lastSyncedAt: '2026-11-18T11:00:00Z',
+  lastSyncedAt: new Date().toISOString(),
 };
 
 export const DEMO_EXPERTS: ExpertProfile[] = [
@@ -361,3 +369,169 @@ export const DEMO_BUILD_EXECUTION: AnnaBuildExecution = {
   ],
   createdAt: '2026-11-18T10:15:00Z',
 };
+
+// ============================================================================
+// 8. VERIFIED PORTAL SCHEMA REGISTRY (Portal #44891204 - Sandbox CRM)
+// ============================================================================
+export const DEMO_PORTAL_SCHEMA_REGISTRY: PortalSchemaRegistry = {
+  portalId: '46100478',
+  portalName: 'HubSpot Demo Account',
+  refreshedAt: new Date().toISOString(),
+  properties: {
+    contacts: [
+      { name: 'email', label: 'Email', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'firstname', label: 'First Name', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'lastname', label: 'Last Name', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      {
+        name: 'lifecyclestage',
+        label: 'Lifecycle Stage',
+        type: 'enumeration',
+        fieldType: 'select',
+        options: [
+          { label: 'Subscriber', value: 'subscriber' },
+          { label: 'Lead', value: 'lead' },
+          { label: 'Marketing Qualified Lead', value: 'marketingqualifiedlead' },
+          { label: 'Sales Qualified Lead', value: 'salesqualifiedlead' },
+          { label: 'Opportunity', value: 'opportunity' },
+          { label: 'Customer', value: 'customer' },
+          { label: 'Evangelist', value: 'evangelist' },
+          { label: 'Other', value: 'other' },
+        ],
+        readOnly: false,
+        calculated: false,
+      },
+      {
+        name: 'hs_lead_status',
+        label: 'Lead Status',
+        type: 'enumeration',
+        fieldType: 'select',
+        options: [
+          { label: 'New', value: 'NEW' },
+          { label: 'Open', value: 'OPEN' },
+          { label: 'In Progress', value: 'IN_PROGRESS' },
+          { label: 'Open Deal', value: 'OPEN_DEAL' },
+          { label: 'Unqualified', value: 'UNQUALIFIED' },
+          { label: 'Attempted Contact', value: 'ATTEMPTED_CONTACT' },
+          { label: 'Connected', value: 'CONNECTED' },
+        ],
+        readOnly: false,
+        calculated: false,
+      },
+      { name: 'hubspot_owner_id', label: 'Contact Owner', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'phone', label: 'Phone Number', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'company', label: 'Company Name', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'lead_readiness_score', label: 'Lead Readiness Score', type: 'number', fieldType: 'number', readOnly: false, calculated: false },
+    ],
+    deals: [
+      { name: 'dealname', label: 'Deal Name', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'amount', label: 'Amount', type: 'number', fieldType: 'number', readOnly: false, calculated: false },
+      { name: 'pipeline', label: 'Pipeline', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'dealstage', label: 'Deal Stage', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'closedate', label: 'Close Date', type: 'date', fieldType: 'date', readOnly: false, calculated: false },
+      { name: 'hubspot_owner_id', label: 'Deal Owner', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'dealtype', label: 'Deal Type', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+    ],
+    companies: [
+      { name: 'name', label: 'Company Name', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'domain', label: 'Company Domain', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'industry', label: 'Industry', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'numberofemployees', label: 'Number of Employees', type: 'number', fieldType: 'number', readOnly: false, calculated: false },
+      { name: 'annualrevenue', label: 'Annual Revenue', type: 'number', fieldType: 'number', readOnly: false, calculated: false },
+    ],
+    tickets: [
+      { name: 'subject', label: 'Ticket Subject', type: 'string', fieldType: 'text', readOnly: false, calculated: false },
+      { name: 'hs_pipeline', label: 'Ticket Pipeline', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'hs_pipeline_stage', label: 'Ticket Status', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+      { name: 'hs_ticket_priority', label: 'Priority', type: 'enumeration', fieldType: 'select', readOnly: false, calculated: false },
+    ],
+  },
+  pipelines: {
+    deals: [
+      {
+        id: 'default',
+        label: 'Sales Pipeline (Direct B2B)',
+        stages: [
+          { id: 'appointmentscheduled', label: 'Discovery Scheduled', probability: 0.2, displayOrder: 0 },
+          { id: 'qualifiedtobuy', label: 'Technical Qualified', probability: 0.4, displayOrder: 1 },
+          { id: 'presentationscheduled', label: 'Architecture Presentation', probability: 0.6, displayOrder: 2 },
+          { id: 'decisionmakerboughtin', label: 'Security & Legal Review', probability: 0.8, displayOrder: 3 },
+          { id: 'contractsent', label: 'Contract Sent', probability: 0.9, displayOrder: 4 },
+          { id: 'closedwon', label: 'Closed Won', probability: 1.0, displayOrder: 5 },
+          { id: 'closedlost', label: 'Closed Lost', probability: 0.0, displayOrder: 6 },
+        ],
+      },
+      {
+        id: 'pipeline_enterprise_expansion',
+        label: 'Enterprise Expansion & Upsell',
+        stages: [
+          { id: 'expansion_opportunity', label: 'Account Audit', probability: 0.3, displayOrder: 0 },
+          { id: 'proposal_review', label: 'Upsell Proposal', probability: 0.7, displayOrder: 1 },
+          { id: 'expansion_closed_won', label: 'Expansion Won', probability: 1.0, displayOrder: 2 },
+        ],
+      },
+    ],
+  },
+  owners: [
+    { id: 'owner_101', email: 'sarah.connor@acmeglobal.com', firstName: 'Sarah', lastName: 'Connor', userId: 91823 },
+    { id: 'owner_102', email: 'div@huboexperts.com', firstName: 'Divyanshu', lastName: 'Tuli', userId: 91824 },
+    { id: 'owner_103', email: 'aadesh@huboexperts.com', firstName: 'Aadesh', lastName: 'Dhall', userId: 91825 },
+  ],
+  lists: [
+    { listId: 'list_8901', name: 'Q4 High-Intent Website Leads', dynamic: false, size: 248 },
+    { listId: 'list_8902', name: 'VIP Enterprise Target Accounts', dynamic: false, size: 54 },
+    { listId: 'list_8903', name: 'Product Marketing Qualified (Live)', dynamic: true, size: 1420 },
+  ],
+  marketingEmails: [
+    { id: 'email_template_101', name: 'Welcome & Onboarding Sequence (Email 1)', isAvailable: true },
+    { id: 'email_template_102', name: 'Lead Nurture — Free Trial Evaluation Check-in', isAvailable: true },
+  ],
+  existingWorkflows: [
+    { id: 'wf_501', name: 'Deal Inactivity Alert (14 Days No Update)', type: 'PLATFORM_FLOW', isEnabled: false },
+    { id: 'wf_502', name: 'Round-Robin Lead Assignment & Owner Notification', type: 'CONTACT_FLOW', isEnabled: true },
+    { id: 'wf_503', name: 'Lifecycle Stage Synchronizer (Opportunity -> Deal)', type: 'CONTACT_FLOW', isEnabled: true },
+  ],
+};
+
+// In-memory runtime stores for portal schema and deployments (synced with Supabase tables)
+let runtimeSchemaRegistry: Record<string, PortalSchemaRegistry> = {
+  '46100478': DEMO_PORTAL_SCHEMA_REGISTRY,
+  '44891204': DEMO_PORTAL_SCHEMA_REGISTRY,
+};
+
+let runtimeDeployments: WorkflowDeploymentRecord[] = [
+  {
+    id: 'dep_init_01',
+    organizationId: 'org_enterprise_01',
+    portalId: '46100478',
+    blueprintId: 'bp_demo_lead_assign',
+    blueprintVersion: 1,
+    idempotencyKey: 'idem_46100478_lead_assign_v1',
+    blueprintHash: 'h_f9823ad761c9e',
+    hubspotWorkflowId: 'wf_502',
+    status: 'ACTIVE',
+    deepLink: 'https://app.hubspot.com/workflows/46100478/flow/wf_502',
+    readbackVerified: true,
+    verificationNotes: 'Verified: 1 trigger, 2 sequential actions, verified contact owner assignment.',
+    deployedAt: '2026-11-18T12:00:00Z',
+    verifiedAt: '2026-11-18T12:00:05Z',
+  },
+];
+
+export function getPortalSchemaRegistry(portalId: string): PortalSchemaRegistry {
+  return runtimeSchemaRegistry[portalId] || {
+    ...DEMO_PORTAL_SCHEMA_REGISTRY,
+    portalId,
+  };
+}
+
+export function savePortalSchemaRegistry(portalId: string, schema: PortalSchemaRegistry): void {
+  runtimeSchemaRegistry[portalId] = schema;
+}
+
+export function getWorkflowDeployments(portalId: string): WorkflowDeploymentRecord[] {
+  return runtimeDeployments.filter((d) => d.portalId === portalId);
+}
+
+export function recordWorkflowDeployment(record: WorkflowDeploymentRecord): void {
+  runtimeDeployments.unshift(record);
+}

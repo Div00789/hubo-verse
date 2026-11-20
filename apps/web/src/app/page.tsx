@@ -32,13 +32,13 @@ export default function MarketingHomePage() {
           {/* Orbital Ambient Glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-[#FF5C00]/15 via-orange-600/10 to-transparent blur-3xl pointer-events-none rounded-full" />
 
-          {/* Announcement Pill with Brand Logo */}
-          <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-[#0E1526] border border-[#1E293B] text-xs text-gray-300 mb-8 shadow-xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/huboverse-logo-dark.png" alt="HuboVerse" className="h-5 w-auto object-contain" />
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF5C00] animate-pulse" />
-            <span className="font-semibold text-white">HuboVerse 1.0</span>
-            <span className="text-gray-400">• Powered by Anna AI</span>
+          {/* Announcement Chip */}
+          <div className="inline-flex items-center justify-center px-5 py-2 rounded-full bg-[#0E1526] border border-[#1E293B] text-xs sm:text-sm font-medium text-gray-300 mb-8 shadow-xl text-center">
+            <span>
+              Made in India, With Love for{' '}
+              <span className="text-[#FF5C00] font-semibold">Business River</span>{' '}
+              ❤️
+            </span>
           </div>
 
           {/* Main Title */}

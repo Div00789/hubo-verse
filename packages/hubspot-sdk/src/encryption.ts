@@ -49,3 +49,6 @@ export function decryptSecret(payload: EncryptedPayload, encryptionKeyHex: strin
 
   return decrypted;
 }
+
+export const encryptToken = encryptSecret;
+export const decryptToken = decryptSecret;

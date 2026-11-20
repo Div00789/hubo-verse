@@ -345,3 +345,9 @@ export class HubSpotEnterpriseClient {
     };
   }
 }
+
+// Re-export client abstractions and utilities
+export * from './client';
+export * from './capability-registry';
+export * from './encryption';
+

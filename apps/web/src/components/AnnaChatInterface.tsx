@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
-import { Send, Sparkles, BookOpen, ExternalLink, ThumbsUp, ThumbsDown, Copy, Check } from 'lucide-react';
+import {
+  Send,
+  Sparkles,
+  BookOpen,
+  ExternalLink,
+  ThumbsUp,
+  ThumbsDown,
+  Copy,
+  Check,
+  ShieldAlert,
+  Hammer,
+  Database,
+  BarChart3,
+} from 'lucide-react';
 import { AnnaChatMessage } from '@huboverse/types';
-import { INITIAL_ANNA_MESSAGES } from '@huboverse/database';
+import { INITIAL_ANNA_MESSAGES, DEMO_HUBSPOT_CONNECTION } from '@huboverse/database';
+import { runAnnaChatStep } from '@huboverse/ai-agent';
 
 interface AnnaChatInterfaceProps {
   onSwitchToBuildMode: (suggestedPrompt?: string) => void;
@@ -13,7 +27,18 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const handleSend = (textToSend?: string) => {
+  const suggestedQuickQuestions = [
+    'How many contacts are in my HubSpot portal?',
+    'How many new leads were created this month?',
+    'Show me deals closing this week.',
+    'Which deals have no recent activity?',
+    'What workflows are currently active?',
+    'Show my sales pipelines and deal stages.',
+    'Which contacts have no assigned owner?',
+    'Which sales representatives have the highest deal values?',
+  ];
+
+  const handleSend = async (textToSend?: string) => {
     const text = textToSend || inputValue;
     if (!text.trim()) return;
 
@@ -30,70 +55,57 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
     setInputValue('');
     setIsTyping(true);
 
-    // Check if the user intends to switch to build mode
-    if (text.toLowerCase().includes('build mode') || text.toLowerCase().includes('create') || text.toLowerCase().includes('property')) {
-      setTimeout(() => {
-        setIsTyping(false);
-        const botReply: AnnaChatMessage = {
-          id: `anna_${Date.now()}`,
-          conversationId: 'conv_demo_01',
-          sender: 'ANNA',
-          content: `I detect that you wish to execute a structural CRM change: "${text}".\n\nI am handing this task off to **Anna Build Mode** where you can inspect the Action Capability verification, review the dry-run JSON schema diff, and approve execution safely.`,
-          mode: 'CHAT',
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, botReply]);
-        setTimeout(() => {
-          onSwitchToBuildMode(text);
-        }, 1200);
-      }, 900);
-      return;
-    }
+    try {
+      // Execute read-only CRM query through HuboVerse AI Agent layer
+      const result = await runAnnaChatStep({
+        conversationId: 'conv_demo_01',
+        userQuery: text,
+        organizationId: 'org_enterprise_01',
+        portalContext: {
+          portalId: DEMO_HUBSPOT_CONNECTION.portalId,
+          hubs: DEMO_HUBSPOT_CONNECTION.hubs,
+        },
+        retrievedCitations: [],
+        responseMarkdown: '',
+        suggestedPrompts: [],
+        tokensConsumed: 0,
+      });
 
-    // Default intelligent RAG advisor simulation
-    setTimeout(() => {
       setIsTyping(false);
+
       const botReply: AnnaChatMessage = {
         id: `anna_${Date.now()}`,
         conversationId: 'conv_demo_01',
         sender: 'ANNA',
-        content: `### Analysis for Portal #44891204 (Acme Global)
-
-Regarding: **"${text}"**
-
-1. **Lead Scoring Calibration**:
-   - In your Sales Enterprise hub, define predictive criteria based on closed-won velocity.
-   - For Marketing Pro, set up negative scoring rules (-15 pts for inactive domain or bounces).
-2. **Workflow Enrollment Safeguard**:
-   - Verify un-enrollment triggers to prevent contacts from re-entering lead nurturing cycles multiple times unless explicitly configured.
-3. **HuboVerse Recommendation**:
-   - Test this scenario in a sandbox environment or preview via **Anna Build Mode** before applying to your primary contact list.`,
+        content: result.responseMarkdown,
         mode: 'CHAT',
         citations: [
           {
-            id: 'cit_1',
-            sourceType: 'HUBSPOT_DOC',
-            title: 'HubSpot Knowledge Base: Lead Scoring Criteria',
-            snippet: 'Rules and attributes configuration for custom scoring properties.',
-            url: 'https://knowledge.hubspot.com',
-          },
-          {
-            id: 'cit_2',
-            sourceType: 'ACADEMY_LESSON',
-            title: 'HuboVerse Academy: Enterprise Lifecycle Engineering (Module 2)',
-            snippet: 'Step-by-step framework for setting SQL thresholds.',
+            id: `cit_${Date.now()}`,
+            sourceType: 'PORTAL_SCHEMA',
+            title: `Live CRM Data: Portal #${DEMO_HUBSPOT_CONNECTION.portalId}`,
+            snippet: result.dataResult?.summary || 'Authorised HubSpot CRM API response.',
+            url: `https://app.hubspot.com/contacts/${DEMO_HUBSPOT_CONNECTION.portalId}`,
           },
         ],
-        suggestedPrompts: [
-          'Switch to Build Mode and create the Lead Scoring properties.',
-          'Show me workflow enrollment troubleshooting steps.',
-          'Analyze our deal stage conversion percentages.',
-        ],
-        tokensUsed: 420,
+        suggestedPrompts: result.suggestedPrompts,
+        tokensUsed: result.tokensConsumed,
         createdAt: new Date().toISOString(),
       };
+
       setMessages((prev) => [...prev, botReply]);
-    }, 1200);
+    } catch (err: any) {
+      setIsTyping(false);
+      const errorReply: AnnaChatMessage = {
+        id: `err_${Date.now()}`,
+        conversationId: 'conv_demo_01',
+        sender: 'ANNA',
+        content: `### Query Execution Error\n\nCould not retrieve data from HubSpot: ${err.message}. Please verify OAuth credentials and portal connectivity.`,
+        mode: 'CHAT',
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorReply]);
+    }
   };
 
   const copyToClipboard = (content: string, id: string) => {
@@ -104,37 +116,38 @@ Regarding: **"${text}"**
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#090D16]">
-      {/* Top Banner */}
-      <div className="px-6 py-2.5 bg-[#0F172A]/80 border-b border-[#1E293B] flex items-center justify-between text-xs">
+      {/* Top Banner with Read-Only Boundary Notice */}
+      <div className="px-6 py-2.5 bg-[#080D1A] border-b border-[#1E293B] flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-gray-300 font-medium">Anna Chat Mode Active</span>
-          <span className="text-gray-400">• RAG Knowledge Base + Portal Schema Grounded</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span className="text-white font-bold">Anna Chat Mode</span>
+          <span className="text-gray-400 hidden sm:inline">• Live HubSpot Read-Only Intelligence (Portal #{DEMO_HUBSPOT_CONNECTION.portalId})</span>
         </div>
+
         <button
           onClick={() => onSwitchToBuildMode()}
-          className="text-[#FF5C00] hover:text-[#FF7A00] font-medium flex items-center gap-1 transition-colors"
+          className="text-[#FF5C00] hover:text-[#FF7A00] font-bold flex items-center gap-1.5 transition-colors text-xs"
         >
-          <span>Switch to Build Mode</span>
-          <ExternalLink className="w-3 h-3" />
+          <Hammer className="w-3.5 h-3.5" />
+          <span>Switch to Build Mode →</span>
         </button>
       </div>
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex gap-3 max-w-3xl ${
+            className={`flex gap-3 max-w-4xl ${
               msg.sender === 'USER' ? 'ml-auto flex-row-reverse' : 'mr-auto'
             }`}
           >
             {/* Avatar */}
             <div
-              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
                 msg.sender === 'USER'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gradient-to-tr from-[#FF5C00] to-amber-500 text-white shadow-md shadow-[#FF5C00]/30'
+                  : 'bg-gradient-to-tr from-[#2F6FED] to-blue-400 text-white shadow-md shadow-[#2F6FED]/25'
               }`}
             >
               {msg.sender === 'USER' ? 'YOU' : 'AI'}
@@ -142,39 +155,40 @@ Regarding: **"${text}"**
 
             {/* Bubble */}
             <div
-              className={`rounded-2xl p-4 text-sm leading-relaxed border ${
+              className={`rounded-2xl p-4 sm:p-5 text-sm leading-relaxed border ${
                 msg.sender === 'USER'
-                  ? 'bg-blue-600/10 border-blue-500/30 text-blue-50'
-                  : 'bg-[#0F172A] border-[#1E293B] text-gray-200'
+                  ? 'bg-blue-600/15 border-blue-500/30 text-blue-50'
+                  : 'bg-[#0B0F19] border-[#1E293B] text-gray-200 shadow-xl'
               }`}
             >
-              <div className="whitespace-pre-line prose prose-invert max-w-none text-xs sm:text-sm">
+              <div className="whitespace-pre-line prose prose-invert max-w-none text-xs sm:text-sm leading-relaxed">
                 {msg.content}
               </div>
 
               {/* Citations Drawer */}
               {msg.citations && msg.citations.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-[#1E293B] space-y-1.5">
-                  <div className="text-[11px] font-semibold text-gray-400 flex items-center gap-1">
-                    <BookOpen className="w-3 h-3 text-[#FF5C00]" />
-                    <span>Verified Knowledge Citations:</span>
+                <div className="mt-4 pt-3 border-t border-[#1E293B] space-y-2">
+                  <div className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5 text-[#2F6FED]" />
+                    <span>Verified HubSpot API Source:</span>
                   </div>
                   {msg.citations.map((c) => (
                     <div
                       key={c.id}
-                      className="bg-[#131B2E] p-2 rounded border border-[#1E293B] text-xs flex items-start justify-between gap-2"
+                      className="bg-[#080D1A] p-2.5 rounded-xl border border-[#1E293B] text-xs flex items-center justify-between gap-3"
                     >
-                      <div>
-                        <div className="font-medium text-gray-300">{c.title}</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">{c.snippet}</div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-white truncate">{c.title}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5 truncate">{c.snippet}</div>
                       </div>
                       {c.url && (
                         <a
                           href={c.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[#FF5C00] hover:text-[#FF7A00] shrink-0"
+                          className="text-[#2F6FED] hover:text-blue-400 shrink-0 flex items-center gap-1 text-[11px] font-bold"
                         >
+                          <span>Open CRM</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
@@ -183,24 +197,52 @@ Regarding: **"${text}"**
                 </div>
               )}
 
-              {/* Message Actions */}
+              {/* Suggested Follow-ups */}
+              {msg.suggestedPrompts && msg.suggestedPrompts.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-[#1E293B] space-y-1.5">
+                  <div className="text-[11px] font-semibold text-gray-400">Suggested Next Inquiries:</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {msg.suggestedPrompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => {
+                          if (prompt.toLowerCase().includes('build mode')) {
+                            onSwitchToBuildMode(prompt);
+                          } else {
+                            handleSend(prompt);
+                          }
+                        }}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-[#131B2E] hover:bg-[#1E293B] text-gray-300 hover:text-white border border-[#1E293B] transition-colors text-left"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions Footer */}
               {msg.sender === 'ANNA' && (
                 <div className="mt-3 flex items-center justify-between text-gray-400 text-[11px] pt-2 border-t border-[#1E293B]">
                   <div className="flex items-center gap-2">
-                    <button className="hover:text-white p-1 rounded hover:bg-[#131B2E]">
-                      <ThumbsUp className="w-3 h-3" />
-                    </button>
-                    <button className="hover:text-white p-1 rounded hover:bg-[#131B2E]">
-                      <ThumbsDown className="w-3 h-3" />
-                    </button>
                     <button
                       onClick={() => copyToClipboard(msg.content, msg.id)}
-                      className="hover:text-white p-1 rounded hover:bg-[#131B2E] flex items-center gap-1 ml-1"
+                      className="hover:text-white p-1 rounded hover:bg-[#131B2E] flex items-center gap-1 transition-colors"
+                      title="Copy response"
                     >
-                      {copiedId === msg.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedId === msg.id ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>{copiedId === msg.id ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
-                  {msg.tokensUsed && <span>{msg.tokensUsed} tokens</span>}
+                  {msg.tokensUsed && (
+                    <span className="font-mono text-[10px] text-gray-500">
+                      Tokens: {msg.tokensUsed} • Read-Only
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -208,56 +250,62 @@ Regarding: **"${text}"**
         ))}
 
         {isTyping && (
-          <div className="flex gap-3 max-w-3xl mr-auto">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#FF5C00] to-amber-500 text-white flex items-center justify-center text-xs font-bold">
+          <div className="flex gap-3 max-w-xl">
+            <div className="w-8 h-8 rounded-xl bg-[#2F6FED]/20 flex items-center justify-center text-xs text-[#2F6FED]">
               AI
             </div>
-            <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl px-4 py-3 text-xs text-gray-400 flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#FF5C00] animate-spin" />
-              <span>Anna is analyzing portal schemas & knowledge base...</span>
+            <div className="p-4 rounded-2xl bg-[#0B0F19] border border-[#1E293B] flex items-center gap-2 text-xs text-gray-400">
+              <div className="w-2 h-2 rounded-full bg-[#2F6FED] animate-bounce" />
+              <div className="w-2 h-2 rounded-full bg-[#2F6FED] animate-bounce [animation-delay:0.2s]" />
+              <div className="w-2 h-2 rounded-full bg-[#2F6FED] animate-bounce [animation-delay:0.4s]" />
+              <span>Querying HubSpot CRM API...</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Suggested Follow-Ups */}
-      {messages[messages.length - 1]?.suggestedPrompts && (
-        <div className="px-6 py-2 flex flex-wrap gap-2 border-t border-[#1E293B]/60 bg-[#0B101D]">
-          {messages[messages.length - 1].suggestedPrompts!.map((p, i) => (
+      {/* Suggested Questions Quick Bar */}
+      <div className="px-6 py-2 bg-[#080D1A] border-t border-[#1E293B] overflow-x-auto">
+        <div className="flex items-center gap-2 text-xs whitespace-nowrap">
+          <span className="text-[11px] font-mono text-[#2F6FED] uppercase font-bold shrink-0">
+            Quick Queries:
+          </span>
+          {suggestedQuickQuestions.map((q) => (
             <button
-              key={i}
-              onClick={() => handleSend(p)}
-              className="text-xs px-2.5 py-1 rounded-full bg-[#131B2E] border border-[#1E293B] text-gray-300 hover:text-white hover:border-[#FF5C00]/50 transition-colors"
+              key={q}
+              onClick={() => handleSend(q)}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-[#0B0F19] hover:bg-[#131B2E] text-gray-300 hover:text-white border border-[#1E293B] transition-colors shrink-0"
             >
-              {p}
+              {q}
             </button>
           ))}
         </div>
-      )}
+      </div>
 
-      {/* Input Box */}
-      <div className="p-4 border-t border-[#1E293B] bg-[#0B101D]">
+      {/* Input Bar */}
+      <div className="p-4 sm:p-5 bg-[#080D1A] border-t border-[#1E293B]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
-          className="relative max-w-4xl mx-auto flex items-center gap-2"
+          className="max-w-4xl mx-auto flex items-center gap-3 bg-[#0B0F19] border border-[#1E293B] rounded-2xl p-2 px-4 shadow-xl focus-within:border-[#2F6FED]/60 transition-colors"
         >
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Ask Anna about workflows, lead scoring, custom objects, or troubleshooting..."
-            className="flex-1 bg-[#131B2E] border border-[#1E293B] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#FF5C00] shadow-inner"
+            placeholder="Ask anything about contacts, deals, pipelines, or active automations..."
+            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
           />
+
           <button
             type="submit"
             disabled={!inputValue.trim() || isTyping}
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#FF5C00] to-[#E04F00] text-white font-medium text-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#FF5C00]/25 flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-[#2F6FED] hover:bg-blue-600 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-[#2F6FED]/20 shrink-0"
           >
-            <span>Send</span>
-            <Send className="w-4 h-4" />
+            <span>Ask</span>
+            <Send className="w-3.5 h-3.5" />
           </button>
         </form>
       </div>

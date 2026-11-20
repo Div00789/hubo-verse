@@ -97,7 +97,7 @@ export default function AppHomePage() {
         }}
         annaMode={annaMode}
         setAnnaMode={setAnnaMode}
-        portalName="HubSpot Demo Sandbox"
+        portalName="HubSpot Demo Account"
         isPortalConnected={true}
         isOpenOnMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}

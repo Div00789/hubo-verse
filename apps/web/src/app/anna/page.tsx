@@ -84,7 +84,7 @@ export default function AnnaPage() {
                 <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
                 <span className="font-semibold text-white">Anna Chat Session</span>
               </div>
-              <span className="text-gray-400 font-mono text-[11px]">Portal #44891204</span>
+              <span className="text-gray-400 font-mono text-[11px]">Portal #46100478</span>
             </div>
             <div className="bg-[#111827] rounded-xl p-3 text-xs text-gray-200">
               <span className="text-gray-400 text-[10px] block font-mono">USER</span>
