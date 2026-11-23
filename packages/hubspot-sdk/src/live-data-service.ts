@@ -43,8 +43,8 @@ export function unregisterPortalToken(portalId: string): void {
 export class HubSpotLiveDataService {
   private portalId: string;
 
-  constructor(portalId = '46100478') {
-    this.portalId = String(portalId);
+  constructor(portalId?: string) {
+    this.portalId = String(portalId || '').trim();
   }
 
   /**
@@ -73,21 +73,12 @@ export class HubSpotLiveDataService {
       }
     }
 
-    // Fallback to environment variable ONLY if this portal matches default portal ID
-    const defaultPortal = process.env.HUBSPOT_DEFAULT_PORTAL_ID || '46100478';
-    if (!refreshToken && (this.portalId === defaultPortal || this.portalId === '46100478')) {
-      refreshToken =
-        process.env.HUBSPOT_REFRESH_TOKEN || 'na1-e2c7-b237-4dbd-950d-c3b0e4909cbf';
-    }
-
     const clientId =
       process.env.HUBSPOT_CLIENT_ID ||
-      process.env.HUBSPOT_MCP_CLIENT_ID ||
-      '9e468bc7-5fce-4556-b0bb-bbbeedf1b51e';
+      process.env.HUBSPOT_MCP_CLIENT_ID;
     const clientSecret =
       process.env.HUBSPOT_CLIENT_SECRET ||
-      process.env.HUBSPOT_MCP_CLIENT_SECRET ||
-      'f439ecb9-c429-440a-810d-8b84d31159f2';
+      process.env.HUBSPOT_MCP_CLIENT_SECRET;
 
     if (!refreshToken) {
       if (cached?.accessToken) return cached.accessToken;
@@ -98,8 +89,8 @@ export class HubSpotLiveDataService {
     try {
       const params = new URLSearchParams({
         grant_type: 'refresh_token',
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: clientId || '',
+        client_secret: clientSecret || '',
         refresh_token: refreshToken,
       });
 
@@ -128,10 +119,6 @@ export class HubSpotLiveDataService {
           savePersistentConnection(persistentConn);
         }
 
-        if (this.portalId === defaultPortal || this.portalId === '46100478') {
-          process.env.HUBSPOT_ACCESS_TOKEN = data.access_token;
-        }
-
         return data.access_token;
       }
     } catch {
@@ -145,6 +132,8 @@ export class HubSpotLiveDataService {
    * Retrieves an active access token for this specific portal, performing automatic refresh if needed.
    */
   public async getValidAccessToken(): Promise<string | null> {
+    if (!this.portalId) return null;
+
     // Check persistent connection cache
     const persistentConn = getPersistentConnectionByPortalId(this.portalId);
     if (
@@ -164,11 +153,6 @@ export class HubSpotLiveDataService {
     const refreshed = await this.refreshAccessToken();
     if (refreshed) {
       return refreshed;
-    }
-
-    const defaultPortal = process.env.HUBSPOT_DEFAULT_PORTAL_ID || '46100478';
-    if (this.portalId === defaultPortal || this.portalId === '46100478') {
-      return process.env.HUBSPOT_ACCESS_TOKEN || null;
     }
 
     return persistentConn?.accessToken || cached?.accessToken || null;
@@ -240,6 +224,7 @@ export class HubSpotLiveDataService {
       owners,
       workflows,
       tickets,
+      pipelines,
     ] = await Promise.all([
       this.getContactCount().catch(() => null),
       this.getUnassignedContactsCount().catch(() => null),
@@ -249,6 +234,7 @@ export class HubSpotLiveDataService {
       this.getOwnerCount().catch(() => null),
       this.getWorkflowInventory().catch(() => null),
       this.getTicketCount().catch(() => null),
+      this.getPipelines().catch(() => null),
     ]);
 
     const workflowBreakdown = (workflows as any)?.breakdown || {};
@@ -299,6 +285,19 @@ export class HubSpotLiveDataService {
                 : Number((pipelineValue.value as any)?.totalPipelineValue || 0)).toLocaleString()}`
             : '$0',
         status: dealCount?.status || 'unavailable',
+      },
+      dealPipelines: {
+        total:
+          pipelines?.value?.totalPipelines !== null && pipelines?.value?.totalPipelines !== undefined
+            ? Number(pipelines.value.totalPipelines)
+            : typeof pipelines?.value === 'number'
+            ? pipelines.value
+            : null,
+        totalStages:
+          pipelines?.value?.totalStages !== null && pipelines?.value?.totalStages !== undefined
+            ? Number(pipelines.value.totalStages)
+            : null,
+        status: (pipelines?.status as any) || 'unavailable',
       },
       owners: {
         total:
@@ -1479,12 +1478,16 @@ export class HubSpotLiveDataService {
       },
     ];
 
+    const conn = getPersistentConnectionByPortalId(this.portalId);
+    const resolvedPortalName =
+      conn?.portalName || conn?.accountName || `HubSpot Account #${this.portalId}`;
+
     return {
       portalId: this.portalId,
-      portalName: 'HubSpot Demo Account',
+      portalName: resolvedPortalName,
       retrievedAt: now,
       portalInfo: {
-        accountName: 'HubSpot Demo Account',
+        accountName: resolvedPortalName,
         portalId: this.portalId,
         auditDate: now,
         connectionStatus: 'VERIFIED',
@@ -1787,5 +1790,152 @@ export class HubSpotLiveDataService {
         'Audit my complete HubSpot portal.',
       ],
     };
+  }
+
+  /**
+   * Fetches live records from HubSpot for CRM data tabs (Contacts, Companies, Deals, Pipelines).
+   */
+  public async getLiveRecords(
+    objectType: 'contacts' | 'companies' | 'deals' | 'pipelines',
+    limit = 20,
+    after?: string
+  ): Promise<{
+    results: any[];
+    paging?: { next?: { after: string } };
+    total?: number;
+    owners?: Record<string, string>;
+  }> {
+    // 1. Fetch owners lookup dictionary
+    const ownersMap: Record<string, string> = {};
+    try {
+      const ownersRes = await this.fetchApi<any>('/crm/v3/owners?limit=100');
+      if (ownersRes.status === 200 && ownersRes.data?.results) {
+        for (const o of ownersRes.data.results) {
+          const fullName = `${o.firstName || ''} ${o.lastName || ''}`.trim() || o.email || String(o.id);
+          ownersMap[String(o.id)] = fullName;
+          if (o.userId) ownersMap[String(o.userId)] = fullName;
+        }
+      }
+    } catch {
+      // Ignore owner lookup failure
+    }
+
+    if (objectType === 'contacts') {
+      const res = await this.fetchApi<any>(
+        `/crm/v3/objects/contacts?limit=${limit}&properties=firstname,lastname,email,hubspot_owner_id,createdate${
+          after ? `&after=${encodeURIComponent(after)}` : ''
+        }`
+      );
+      if (res.status === 200 && res.data) {
+        const results = (res.data.results || []).map((c: any) => ({
+          id: c.id,
+          name:
+            `${c.properties?.firstname || ''} ${c.properties?.lastname || ''}`.trim() ||
+            c.properties?.email ||
+            'Unnamed Contact',
+          email: c.properties?.email || 'No email',
+          owner: ownersMap[String(c.properties?.hubspot_owner_id)] || c.properties?.hubspot_owner_id || 'Unassigned',
+          createdAt: c.properties?.createdate || c.createdAt,
+        }));
+        return {
+          results,
+          paging: res.data.paging,
+          owners: ownersMap,
+        };
+      }
+      throw new Error(res.error || 'Failed to fetch contacts from HubSpot API');
+    }
+
+    if (objectType === 'companies') {
+      const res = await this.fetchApi<any>(
+        `/crm/v3/objects/companies?limit=${limit}&properties=name,domain,hubspot_owner_id,createdate${
+          after ? `&after=${encodeURIComponent(after)}` : ''
+        }`
+      );
+      if (res.status === 200 && res.data) {
+        const results = (res.data.results || []).map((c: any) => ({
+          id: c.id,
+          name: c.properties?.name || 'Unnamed Company',
+          domain: c.properties?.domain || 'No domain',
+          owner: ownersMap[String(c.properties?.hubspot_owner_id)] || c.properties?.hubspot_owner_id || 'Unassigned',
+          createdAt: c.properties?.createdate || c.createdAt,
+        }));
+        return {
+          results,
+          paging: res.data.paging,
+          owners: ownersMap,
+        };
+      }
+      throw new Error(res.error || 'Failed to fetch companies from HubSpot API');
+    }
+
+    if (objectType === 'deals') {
+      const res = await this.fetchApi<any>(
+        `/crm/v3/objects/deals?limit=${limit}&properties=dealname,amount,pipeline,dealstage,hubspot_owner_id,createdate${
+          after ? `&after=${encodeURIComponent(after)}` : ''
+        }`
+      );
+      if (res.status === 200 && res.data) {
+        const results = (res.data.results || []).map((d: any) => ({
+          id: d.id,
+          dealname: d.properties?.dealname || 'Unnamed Deal',
+          amount: d.properties?.amount != null ? Number(d.properties?.amount) : null,
+          pipeline: d.properties?.pipeline || 'default',
+          dealstage: d.properties?.dealstage || 'Unknown stage',
+          owner: ownersMap[String(d.properties?.hubspot_owner_id)] || d.properties?.hubspot_owner_id || 'Unassigned',
+          createdAt: d.properties?.createdate || d.createdAt,
+        }));
+        return {
+          results,
+          paging: res.data.paging,
+          owners: ownersMap,
+        };
+      }
+      throw new Error(res.error || 'Failed to fetch deals from HubSpot API');
+    }
+
+    if (objectType === 'pipelines') {
+      const res = await this.fetchApi<any>('/crm/v3/pipelines/deals');
+      if (res.status === 200 && res.data?.results) {
+        const results = res.data.results.map((p: any) => ({
+          id: p.id,
+          label: p.label || p.id,
+          stages: (p.stages || []).map((s: any) => ({
+            id: s.id,
+            label: s.label || s.id,
+            displayOrder: s.displayOrder,
+            probability: s.metadata?.probability != null ? Number(s.metadata.probability) : undefined,
+          })),
+        }));
+        return { results, owners: ownersMap };
+      }
+
+      // Fallback: extract distinct pipelines and stages from live deal records
+      const dealsRes = await this.fetchApi<any>('/crm/v3/objects/deals?limit=100&properties=pipeline,dealstage');
+      if (dealsRes.status === 200 && dealsRes.data?.results) {
+        const deals = dealsRes.data.results;
+        const pipelinesMap = new Map<string, Set<string>>();
+        for (const d of deals) {
+          const pipe = d.properties?.pipeline || 'default';
+          const stage = d.properties?.dealstage || 'active';
+          if (!pipelinesMap.has(pipe)) pipelinesMap.set(pipe, new Set());
+          pipelinesMap.get(pipe)!.add(stage);
+        }
+        const results = Array.from(pipelinesMap.entries()).map(([pId, stagesSet]) => ({
+          id: pId,
+          label: pId === 'default' ? 'Default Sales Pipeline' : `Pipeline ${pId}`,
+          stages: Array.from(stagesSet).map((st, idx) => ({
+            id: st,
+            label: st.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
+            displayOrder: idx,
+          })),
+        }));
+        return { results, owners: ownersMap };
+      }
+
+      throw new Error('Unable to retrieve pipelines from HubSpot API');
+    }
+
+    throw new Error(`Unsupported objectType: ${objectType}`);
   }
 }

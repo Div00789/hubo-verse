@@ -1,20 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Radio,
   RefreshCw,
-  Key,
-  CheckCircle2,
-  AlertTriangle,
   ExternalLink,
-  Database,
-  Unlink,
-  ArrowRight,
-  Bot,
-  Sparkles,
-  Activity,
-  Layers,
   ChevronDown,
   Plus,
   ShieldCheck,
@@ -24,10 +13,14 @@ import {
   Workflow,
   Check,
   X,
+  AlertCircle,
+  FolderGit2,
+  Lock,
+  Layers,
+  ArrowRight,
+  TrendingUp,
 } from 'lucide-react';
-import { getPortalSchemaRegistry } from '@huboverse/database';
 import type { UnifiedPortalMetrics } from '@huboverse/types';
-import { PortalHealthDashboard } from './PortalHealthDashboard';
 
 export interface PortalConnectionItem {
   id: string;
@@ -43,10 +36,6 @@ export interface PortalConnectionItem {
   connectedAt?: string;
   lastSyncedAt?: string;
   authMethod?: string;
-  verifiedPropertiesCount?: number;
-  verifiedPipelinesCount?: number;
-  verifiedOwnersCount?: number;
-  verifiedWorkflowsCount?: number;
 }
 
 interface PortalStatusCardProps {
@@ -56,6 +45,8 @@ interface PortalStatusCardProps {
   onActivePortalChange?: (portalId: string, portalName: string) => void;
 }
 
+type CrmTab = 'contacts' | 'companies' | 'deals' | 'pipelines';
+
 export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
   onSelectPortalForAnna,
   onOpenBuildWithPrompt,
@@ -63,18 +54,26 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
   onActivePortalChange,
 }) => {
   const [connections, setConnections] = useState<PortalConnectionItem[]>([]);
-  const [selectedPortalId, setSelectedPortalId] = useState<string>(
-    propActivePortalId || ''
-  );
+  const [selectedPortalId, setSelectedPortalId] = useState<string>(propActivePortalId || '');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
-  const [isOAuthConfigured, setIsOAuthConfigured] = useState(true);
-  const [showHealthDashboard, setShowHealthDashboard] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Live Metrics
   const [unifiedMetrics, setUnifiedMetrics] = useState<UnifiedPortalMetrics | null>(null);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+
+  // CRM Data Tabs
+  const [activeTab, setActiveTab] = useState<CrmTab>('contacts');
+  const [tabRecords, setTabRecords] = useState<any[]>([]);
+  const [tabPaging, setTabPaging] = useState<{ next?: { after: string } } | undefined>();
+  const [tabOwners, setTabOwners] = useState<Record<string, string>>({});
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [tabError, setTabError] = useState<string | null>(null);
+  const [pageCursorHistory, setPageCursorHistory] = useState<string[]>([]);
+  const [currentCursor, setCurrentCursor] = useState<string | undefined>(undefined);
 
   // Connect Modal states
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
@@ -85,43 +84,41 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
   const [manualUser, setManualUser] = useState('');
   const [isAddingManual, setIsAddingManual] = useState(false);
 
-  // Sync with prop when parent changes
+  // Active query tracker to prevent race conditions
+  const activePortalQueryRef = useRef<string>('');
+
+  // Sync with prop when parent updates
   useEffect(() => {
     if (propActivePortalId && propActivePortalId !== selectedPortalId) {
       setSelectedPortalId(propActivePortalId);
     }
   }, [propActivePortalId]);
 
-  // Load all connections from server API
+  // Load connections from server
   const fetchConnections = useCallback(async () => {
     try {
       const res = await fetch('/api/hubspot/connections');
       if (res.ok) {
         const data = await res.json();
-        setConnections(data.connections || []);
-        setIsOAuthConfigured(data.isOAuthConfigured ?? true);
+        const list: PortalConnectionItem[] = data.connections || [];
+        setConnections(list);
 
         // Determine active portal ID
         const resolvedActive =
-          propActivePortalId ||
           data.activePortalId ||
-          (data.connections && data.connections.length > 0
-            ? data.connections[0].portalId
-            : '');
+          propActivePortalId ||
+          (list.length > 0 ? list[0].portalId : '');
 
-        setSelectedPortalId(resolvedActive);
-
-        if (resolvedActive && onActivePortalChange) {
-          const match = data.connections?.find(
-            (c: PortalConnectionItem) => c.portalId === resolvedActive
-          );
-          if (match) {
+        if (resolvedActive) {
+          setSelectedPortalId(resolvedActive);
+          const match = list.find((c) => c.portalId === resolvedActive);
+          if (match && onActivePortalChange) {
             onActivePortalChange(match.portalId, match.portalName);
           }
         }
       }
     } catch {
-      // Fallback
+      // Handled silently
     } finally {
       setIsLoading(false);
     }
@@ -131,43 +128,126 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
     fetchConnections();
   }, [fetchConnections]);
 
-  const activeConnection =
-    connections.find((c) => c.portalId === selectedPortalId) ||
-    connections.find((c) => c.status === 'CONNECTED') ||
-    connections[0];
+  const activeConnection = connections.find((c) => c.portalId === selectedPortalId) || null;
 
+  // Fetch Live Metrics for active portal (Strict Isolation)
   const fetchLiveMetrics = useCallback(async (portalId: string) => {
-    if (!portalId) return;
+    if (!portalId) {
+      setUnifiedMetrics(null);
+      return;
+    }
+    activePortalQueryRef.current = portalId;
     setIsLoadingMetrics(true);
+    setMetricsError(null);
+
     try {
-      const res = await fetch(`/api/hubspot/metrics?portalId=${portalId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.metrics) {
-          setUnifiedMetrics(data.metrics);
+      const res = await fetch(`/api/hubspot/metrics?portalId=${encodeURIComponent(portalId)}`);
+      if (activePortalQueryRef.current !== portalId) return; // Prevent race conditions
+
+      const data = await res.json();
+      if (res.ok && data.success && data.metrics) {
+        setUnifiedMetrics(data.metrics);
+      } else {
+        setUnifiedMetrics(null);
+        if (data.error === 'NEEDS_REAUTH') {
+          setMetricsError(`HubSpot portal #${portalId} requires authentication.`);
+        } else {
+          setMetricsError(data.error || 'Failed to fetch live CRM metrics.');
         }
       }
-    } catch {
-      // Metrics fetch failure handled gracefully
+    } catch (err: any) {
+      if (activePortalQueryRef.current === portalId) {
+        setUnifiedMetrics(null);
+        setMetricsError(err.message || 'Network error fetching metrics.');
+      }
     } finally {
-      setIsLoadingMetrics(false);
+      if (activePortalQueryRef.current === portalId) {
+        setIsLoadingMetrics(false);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    if (activeConnection?.portalId) {
-      fetchLiveMetrics(activeConnection.portalId);
-    }
-  }, [activeConnection?.portalId, fetchLiveMetrics]);
+  // Fetch Live Tabular Records (Contacts, Companies, Deals, Pipelines)
+  const fetchLiveRecords = useCallback(
+    async (portalId: string, objectType: CrmTab, cursor?: string) => {
+      if (!portalId) {
+        setTabRecords([]);
+        return;
+      }
+      activePortalQueryRef.current = portalId;
+      setIsLoadingRecords(true);
+      setTabError(null);
 
-  const schema = activeConnection
-    ? getPortalSchemaRegistry(activeConnection.portalId)
-    : null;
+      try {
+        const queryParams = new URLSearchParams({
+          portalId,
+          objectType,
+          limit: '15',
+        });
+        if (cursor) {
+          queryParams.append('after', cursor);
+        }
+
+        const res = await fetch(`/api/hubspot/records?${queryParams.toString()}`);
+        if (activePortalQueryRef.current !== portalId) return; // Race condition check
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setTabRecords(data.results || []);
+          setTabPaging(data.paging);
+          if (data.owners) {
+            setTabOwners(data.owners);
+          }
+        } else {
+          setTabRecords([]);
+          setTabPaging(undefined);
+          setTabError(data.message || data.error || `Unable to retrieve ${objectType}.`);
+        }
+      } catch (err: any) {
+        if (activePortalQueryRef.current === portalId) {
+          setTabRecords([]);
+          setTabPaging(undefined);
+          setTabError(err.message || 'Failed to connect to HubSpot API.');
+        }
+      } finally {
+        if (activePortalQueryRef.current === portalId) {
+          setIsLoadingRecords(false);
+        }
+      }
+    },
+    []
+  );
+
+  // Trigger metrics and record fetch whenever active portal or tab changes
+  useEffect(() => {
+    if (selectedPortalId) {
+      fetchLiveMetrics(selectedPortalId);
+      setCurrentCursor(undefined);
+      setPageCursorHistory([]);
+      fetchLiveRecords(selectedPortalId, activeTab);
+    }
+  }, [selectedPortalId, fetchLiveMetrics]);
+
+  useEffect(() => {
+    if (selectedPortalId) {
+      setCurrentCursor(undefined);
+      setPageCursorHistory([]);
+      fetchLiveRecords(selectedPortalId, activeTab);
+    }
+  }, [activeTab, selectedPortalId, fetchLiveRecords]);
 
   // Handle account selection
   const handleSelectAccount = async (targetPortalId: string) => {
     setIsDropdownOpen(false);
+    if (targetPortalId === selectedPortalId) return;
+
+    // Immediately clear previous account data to prevent cross-account display
     setSelectedPortalId(targetPortalId);
+    setUnifiedMetrics(null);
+    setTabRecords([]);
+    setTabPaging(undefined);
+    setMetricsError(null);
+    setTabError(null);
 
     const targetAccount = connections.find((c) => c.portalId === targetPortalId);
     if (targetAccount && onActivePortalChange) {
@@ -184,25 +264,84 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
         }),
       });
 
-      setSyncNotice(
-        `Switched active HubSpot account to ${targetAccount?.portalName || `#${targetPortalId}`}.`
-      );
-      setTimeout(() => setSyncNotice(null), 4000);
+      setSyncNotice(`Active account switched to ${targetAccount?.portalName || `#${targetPortalId}`}.`);
+      setTimeout(() => setSyncNotice(null), 3500);
     } catch {
       // Silent error fallback
     }
   };
 
-  // Open Connect Modal
-  const handleConnectOAuth = () => {
-    setIsConnectModalOpen(true);
+  // Manual Refresh
+  const handleRefresh = async () => {
+    if (!selectedPortalId || isRefreshing) return;
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchConnections(),
+      fetchLiveMetrics(selectedPortalId),
+      fetchLiveRecords(selectedPortalId, activeTab, currentCursor),
+    ]);
+    setIsRefreshing(false);
+    setSyncNotice('Account data refreshed from HubSpot API.');
+    setTimeout(() => setSyncNotice(null), 3000);
   };
 
-  const handleLaunchOAuthRedirect = () => {
-    window.location.href = '/api/integrations/hubspot/mcp/authorize';
+  // Disconnect Account
+  const handleDisconnect = async (portalIdToDisconnect: string) => {
+    if (!confirm(`Are you sure you want to disconnect HubSpot Account #${portalIdToDisconnect}?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/hubspot/connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'disconnect',
+          portalId: portalIdToDisconnect,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSyncNotice(`Disconnected portal #${portalIdToDisconnect}.`);
+        setTimeout(() => setSyncNotice(null), 4000);
+        await fetchConnections();
+        if (data.nextActivePortalId) {
+          handleSelectAccount(data.nextActivePortalId);
+        } else {
+          setSelectedPortalId('');
+          setUnifiedMetrics(null);
+          setTabRecords([]);
+        }
+      }
+    } catch (err: any) {
+      setSyncNotice(`Failed to disconnect: ${err.message}`);
+    }
   };
 
-  const handleAddPortal = async (e: React.FormEvent) => {
+  // Pagination Handlers
+  const handleNextPage = () => {
+    if (tabPaging?.next?.after && selectedPortalId) {
+      const nextCursor = tabPaging.next.after;
+      setPageCursorHistory((prev) => [...prev, currentCursor || '']);
+      setCurrentCursor(nextCursor);
+      fetchLiveRecords(selectedPortalId, activeTab, nextCursor);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (pageCursorHistory.length > 0 && selectedPortalId) {
+      const prevCursors = [...pageCursorHistory];
+      const prevCursor = prevCursors.pop();
+      setPageCursorHistory(prevCursors);
+      const targetCursor = prevCursor === '' ? undefined : prevCursor;
+      setCurrentCursor(targetCursor);
+      fetchLiveRecords(selectedPortalId, activeTab, targetCursor);
+    }
+  };
+
+  // Direct Manual Add
+  const handleAddManualPortal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualPortalId.trim()) return;
 
@@ -214,8 +353,7 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
         body: JSON.stringify({
           action: 'add_portal',
           targetPortalId: manualPortalId.trim(),
-          portalName:
-            manualPortalName.trim() || `HubSpot Portal #${manualPortalId.trim()}`,
+          portalName: manualPortalName.trim() || `HubSpot Account #${manualPortalId.trim()}`,
           accessToken: manualToken.trim() || undefined,
           connectedUser: manualUser.trim() || 'Authorized User',
         }),
@@ -223,741 +361,640 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
 
       if (res.ok) {
         const data = await res.json();
-        setSyncNotice(
-          `Successfully connected and activated HubSpot Portal #${data.portalId} (${manualPortalName || 'New Account'}).`
-        );
-        setTimeout(() => setSyncNotice(null), 5000);
         setIsConnectModalOpen(false);
-        const addedId = data.portalId;
         setManualPortalId('');
         setManualPortalName('');
         setManualToken('');
         setManualUser('');
         await fetchConnections();
-        handleSelectAccount(addedId);
+        handleSelectAccount(data.portalId);
+        setSyncNotice(`Added and activated HubSpot Portal #${data.portalId}.`);
+        setTimeout(() => setSyncNotice(null), 4000);
       } else {
         const err = await res.json();
-        setSyncNotice(`Error connecting portal: ${err.message || 'Failed to add connection'}`);
-        setTimeout(() => setSyncNotice(null), 5000);
+        alert(err.message || 'Failed to add connection.');
       }
     } catch (err: any) {
-      setSyncNotice(`Failed to connect portal: ${err.message}`);
-      setTimeout(() => setSyncNotice(null), 5000);
+      alert(`Error: ${err.message}`);
     } finally {
       setIsAddingManual(false);
     }
   };
 
-  // Force schema synchronization
-  const handleForceSync = async () => {
-    if (!activeConnection) return;
-    setIsSyncing(true);
-    setSyncNotice(null);
-
-    try {
-      const res = await fetch('/api/hubspot/connections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'sync_schema',
-          portalId: activeConnection.portalId,
-        }),
-      });
-      await res.json();
-      await fetchConnections();
-      setSyncNotice(
-        `Schema for Portal #${activeConnection.portalId} synchronized successfully.`
-      );
-      setTimeout(() => setSyncNotice(null), 5000);
-    } catch {
-      setSyncNotice('Schema sync completed with verified in-memory registry cache.');
-      setTimeout(() => setSyncNotice(null), 4000);
-    } finally {
-      setIsSyncing(false);
-    }
+  const formatCurrency = (val: number | null | undefined) => {
+    if (val == null) return '$0';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(val);
   };
 
-  // Refresh connection status & tokens
-  const handleRefreshData = async () => {
-    if (!activeConnection) return;
-    setIsRefreshing(true);
-    setSyncNotice(null);
-
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—';
     try {
-      await fetch('/api/hubspot/connections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'refresh',
-          portalId: activeConnection.portalId,
-        }),
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
       });
-      await fetchConnections();
-      await fetchLiveMetrics(activeConnection.portalId);
-      setSyncNotice(
-        `Connection refreshed. Live CRM status verified for #${activeConnection.portalId}.`
-      );
-      setTimeout(() => setSyncNotice(null), 4000);
     } catch {
-      // Fallback
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  // Disconnect an account
-  const handleDisconnect = async (targetPortalId: string) => {
-    try {
-      const res = await fetch('/api/hubspot/connections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'disconnect',
-          portalId: targetPortalId,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setSyncNotice(`Portal #${targetPortalId} disconnected successfully.`);
-        setTimeout(() => setSyncNotice(null), 4000);
-        await fetchConnections();
-
-        if (data.nextActivePortalId) {
-          setSelectedPortalId(data.nextActivePortalId);
-          const nextAcc = connections.find(
-            (c) => c.portalId === data.nextActivePortalId
-          );
-          if (nextAcc && onActivePortalChange) {
-            onActivePortalChange(nextAcc.portalId, nextAcc.portalName);
-          }
-        }
-      }
-    } catch {
-      // Offline fallback
-    }
-  };
-
-  // Select active portal for Anna Chat
-  const handleSelectForAnna = () => {
-    if (!activeConnection) return;
-    handleSelectAccount(activeConnection.portalId);
-
-    if (onSelectPortalForAnna) {
-      onSelectPortalForAnna(activeConnection.portalId);
-    } else {
-      setSyncNotice(
-        `Portal #${activeConnection.portalId} (${activeConnection.portalName}) is now the active grounded context for Anna AI.`
-      );
-      setTimeout(() => setSyncNotice(null), 4000);
+      return dateStr;
     }
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
-      {/* ------------------------------------------------------------- */}
-      {/* SECTION 1 — ACCOUNT MANAGEMENT & SELECTOR                     */}
-      {/* ------------------------------------------------------------- */}
-      <div className="space-y-4">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1E293B]">
-          <div>
-            <div className="text-xs font-mono uppercase text-[#FF5C00] tracking-wider font-semibold">
-              HubSpot Remote MCP &amp; OAuth 2.1 Engine
-            </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-1">
-              Connected HubSpot Portals
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-400 mt-1">
-              Connect, manage, and switch dynamically between your authorized HubSpot accounts.
-            </p>
+    <div className="space-y-6">
+      {/* Toast Notification */}
+      {syncNotice && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm rounded-xl animate-fade-in shadow-lg">
+          <Check className="w-4 h-4 shrink-0" />
+          <span>{syncNotice}</span>
+        </div>
+      )}
+
+      {/* A. PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Connected HubSpot Accounts</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Manage your HubSpot connections and view live CRM data.
+          </p>
+        </div>
+        <button
+          onClick={() => setIsConnectModalOpen(true)}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition shadow-lg shadow-orange-600/20 active:scale-95"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Connect HubSpot Account</span>
+        </button>
+      </div>
+
+      {/* B. ACCOUNT SELECTOR & CONTROLS */}
+      <div className="bg-[#0F1626] border border-white/10 rounded-2xl p-5 shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Custom Account Dropdown */}
+          <div className="relative flex-1 max-w-xl">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+              Active HubSpot Account
+            </label>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#090D16] border border-white/10 hover:border-white/20 rounded-xl text-left transition focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shrink-0">
+                  <Building className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-white truncate">
+                    {activeConnection?.portalName || (isLoading ? 'Loading connections...' : 'No Account Selected')}
+                  </div>
+                  <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                    <span>Portal ID: {selectedPortalId || '—'}</span>
+                    {activeConnection && (
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-medium ${
+                          activeConnection.status === 'CONNECTED'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : activeConnection.status === 'NEEDS_REAUTH'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        }`}
+                      >
+                        {activeConnection.status === 'CONNECTED'
+                          ? 'CONNECTED'
+                          : activeConnection.status === 'NEEDS_REAUTH'
+                          ? 'NEEDS REAUTH'
+                          : 'DISCONNECTED'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-[#0C121E] border border-white/15 rounded-xl shadow-2xl overflow-hidden py-1 divide-y divide-white/5">
+                {connections.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    No connected HubSpot accounts. Click &quot;Connect HubSpot Account&quot; to add one.
+                  </div>
+                ) : (
+                  connections.map((c) => {
+                    const isSelected = c.portalId === selectedPortalId;
+                    return (
+                      <div
+                        key={c.portalId}
+                        onClick={() => handleSelectAccount(c.portalId)}
+                        className={`flex items-center justify-between px-4 py-3 cursor-pointer transition ${
+                          isSelected ? 'bg-orange-500/10' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-white truncate">{c.portalName}</span>
+                            {isSelected && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-400 font-semibold border border-orange-500/30">
+                                ACTIVE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                            <span>Portal #{c.portalId}</span>
+                            <span>•</span>
+                            <span
+                              className={
+                                c.status === 'CONNECTED'
+                                  ? 'text-emerald-400'
+                                  : c.status === 'NEEDS_REAUTH'
+                                  ? 'text-amber-400'
+                                  : 'text-red-400'
+                              }
+                            >
+                              {c.status === 'CONNECTED'
+                                ? 'Connected'
+                                : c.status === 'NEEDS_REAUTH'
+                                ? 'Needs Reauth'
+                                : 'Disconnected'}
+                            </span>
+                          </div>
+                        </div>
+                        {isSelected && <Check className="w-4 h-4 text-orange-400 shrink-0" />}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 self-end lg:self-center">
             <button
-              onClick={handleConnectOAuth}
-              className="px-4 py-2.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5C00]/20"
+              onClick={handleRefresh}
+              disabled={isRefreshing || !selectedPortalId}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium transition border border-white/5 disabled:opacity-50"
             >
-              <Plus className="w-4 h-4" />
-              <span>Connect HubSpot Account</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh Data</span>
             </button>
+
+            {activeConnection && (
+              <button
+                onClick={() => handleDisconnect(activeConnection.portalId)}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-medium transition border border-red-500/20"
+              >
+                <span>Disconnect</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Sync / Action Notification Alert */}
-        {syncNotice && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{syncNotice}</span>
-          </div>
-        )}
-
-        {/* ACTIVE ACCOUNT SELECTOR CONSOLE */}
-        {connections.length > 0 && activeConnection && (
-          <div className="bg-[#0B0F19] border border-[#1E293B] rounded-2xl p-5 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-bold block">
-                  ACTIVE HUBSPOT ACCOUNT
-                </span>
-                <span className="text-xs text-gray-400">
-                  All CRM operations, Anna AI conversations, and audits operate strictly against this account.
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleRefreshData}
-                  disabled={isRefreshing}
-                  className="px-3 py-1.5 rounded-lg bg-[#131B2E] hover:bg-[#1E293B] border border-[#1E293B] text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                  title="Refresh live account metadata and verify tokens"
+        {/* C. SELECTED ACCOUNT COMPACT OVERVIEW */}
+        {activeConnection && (
+          <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Account Name</div>
+              <div className="text-sm font-semibold text-white mt-1 truncate">{activeConnection.portalName}</div>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Portal ID</div>
+              <div className="text-sm font-semibold text-white mt-1 flex items-center gap-1.5">
+                <span>#{activeConnection.portalId}</span>
+                <a
+                  href={`https://${activeConnection.hubspotDomain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-orange-400 transition"
+                  title="Open in HubSpot"
                 >
-                  <RefreshCw
-                    className={`w-3.5 h-3.5 text-[#FF5C00] ${
-                      isRefreshing ? 'animate-spin' : ''
-                    }`}
-                  />
-                  <span>{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
-                </button>
-
-                <button
-                  onClick={handleConnectOAuth}
-                  className="px-3 py-1.5 rounded-lg bg-[#131B2E] hover:bg-[#1E293B] border border-[#1E293B] text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#FF5C00]" />
-                  <span>Connect New Account</span>
-                </button>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             </div>
-
-            {/* Dropdown Selector Bar */}
-            <div className="relative">
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full px-4 py-3 bg-[#101726] hover:bg-[#131B2E] border border-[#1E293B] hover:border-[#2F6FED]/50 rounded-xl text-left flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                      activeConnection.status === 'CONNECTED'
-                        ? 'bg-emerald-500 animate-pulse'
-                        : 'bg-red-500'
-                    }`}
-                  />
-                  <div className="truncate">
-                    <div className="text-sm font-extrabold text-white flex items-center gap-2">
-                      <span>{activeConnection.portalName}</span>
-                      <span className="font-mono text-xs text-gray-400 font-normal">
-                        (Portal #{activeConnection.portalId})
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
-                      <span className="text-emerald-400 font-medium">
-                        Status: {activeConnection.status}
-                      </span>
-                      <span>•</span>
-                      <span>Last Sync: {activeConnection.lastSuccessfulCheck}</span>
-                      <span>•</span>
-                      <span>User: {activeConnection.connectedUser || 'Authorized User'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold">
-                    CURRENTLY ACTIVE
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 text-gray-400 transition-transform ${
-                      isDropdownOpen ? 'rotate-180 text-white' : ''
-                    }`}
-                  />
-                </div>
-              </button>
-
-              {/* Dropdown Menu */}
-              {isDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0E1526] border border-[#1E293B] rounded-xl shadow-2xl p-2 z-30 space-y-1">
-                  <div className="text-[10px] font-mono uppercase text-gray-400 px-3 py-1 font-semibold">
-                    Select HubSpot Account to Switch Context:
-                  </div>
-                  {connections.map((c) => (
-                    <div
-                      key={c.portalId}
-                      onClick={() => handleSelectAccount(c.portalId)}
-                      className={`px-3 py-2.5 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
-                        c.portalId === activeConnection.portalId
-                          ? 'bg-[#1E293B] text-white border-l-2 border-[#FF5C00]'
-                          : 'hover:bg-[#131B2E] text-gray-300 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            c.status === 'CONNECTED' ? 'bg-emerald-500' : 'bg-red-500'
-                          }`}
-                        />
-                        <div>
-                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                            <span>{c.portalName}</span>
-                            <span className="font-mono text-[11px] text-gray-400 font-normal">
-                              #{c.portalId}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-gray-400">
-                            {c.connectedUser || 'Authorized User'} • Last check: {c.lastSuccessfulCheck}
-                          </div>
-                        </div>
-                      </div>
-
-                      {c.portalId === activeConnection.portalId ? (
-                        <span className="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
-                          <Check className="w-3 h-3" /> ACTIVE
-                        </span>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectAccount(c.portalId);
-                          }}
-                          className="px-2.5 py-1 rounded bg-[#2F6FED]/20 hover:bg-[#2F6FED] text-[#2F6FED] hover:text-white text-[10px] font-semibold transition-colors"
-                        >
-                          Switch
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Connection Status</div>
+              <div className="text-sm font-semibold mt-1 flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    activeConnection.status === 'CONNECTED'
+                      ? 'bg-emerald-500'
+                      : activeConnection.status === 'NEEDS_REAUTH'
+                      ? 'bg-amber-500'
+                      : 'bg-red-500'
+                  }`}
+                />
+                <span
+                  className={
+                    activeConnection.status === 'CONNECTED'
+                      ? 'text-emerald-400'
+                      : activeConnection.status === 'NEEDS_REAUTH'
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }
+                >
+                  {activeConnection.status === 'CONNECTED'
+                    ? 'Connected (Live)'
+                    : activeConnection.status === 'NEEDS_REAUTH'
+                    ? 'Needs Re-authorization'
+                    : 'Disconnected'}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* EMPTY STATE (When no accounts connected) */}
-        {!isLoading && connections.length === 0 && (
-          <div className="bg-[#0B0F19] border border-dashed border-[#1E293B] rounded-3xl p-10 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 flex items-center justify-center text-[#FF5C00] mx-auto">
-              <Radio className="w-8 h-8" />
-            </div>
-            <div className="space-y-1 max-w-md mx-auto">
-              <h2 className="text-lg font-extrabold text-white">
-                No HubSpot Accounts Connected
-              </h2>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Connect your HubSpot account to access your live CRM data, workflows, pipelines, and AI-powered tools.
-              </p>
-            </div>
-            <button
-              onClick={handleConnectOAuth}
-              className="px-6 py-3 rounded-xl bg-[#FF5C00] hover:bg-[#FF7A00] text-white text-xs font-bold inline-flex items-center gap-2 shadow-lg shadow-[#FF5C00]/25 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Connect HubSpot Account</span>
-            </button>
-          </div>
-        )}
-
-        {/* CONNECTED ACCOUNTS CARDS LIST */}
-        {connections.length > 0 && (
-          <div className="space-y-3 pt-2">
-            <div className="text-[11px] font-mono uppercase text-gray-400 font-bold tracking-wider">
-              Connected Accounts ({connections.length})
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {connections.map((conn) => {
-                const isSelected = conn.portalId === activeConnection?.portalId;
-                return (
-                  <div
-                    key={conn.portalId}
-                    className={`rounded-2xl p-5 border transition-all ${
-                      isSelected
-                        ? 'bg-gradient-to-br from-[#0F172A] to-[#0A1020] border-[#2F6FED]/60 shadow-xl'
-                        : 'bg-[#0B0F19] border-[#1E293B] hover:border-gray-700'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                      {/* Left: Account Identity */}
-                      <div className="flex items-start gap-3.5">
-                        <div
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
-                            isSelected
-                              ? 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30'
-                              : 'bg-[#131B2E] text-gray-400 border-[#1E293B]'
-                          }`}
-                        >
-                          <Building className="w-6 h-6" />
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-extrabold text-white">
-                              {conn.portalName}
-                            </h3>
-
-                            {conn.status === 'CONNECTED' ? (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> CONNECTED
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] font-mono font-bold flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> {conn.status}
-                              </span>
-                            )}
-
-                            {isSelected && (
-                              <span className="px-2.5 py-0.5 rounded-full bg-[#2F6FED]/20 border border-[#2F6FED]/40 text-[#2F6FED] text-[10px] font-mono font-bold">
-                                CURRENTLY ACTIVE
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="text-xs text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <span>
-                              Portal ID:{' '}
-                              <strong className="font-mono text-gray-200">
-                                #{conn.portalId}
-                              </strong>
-                            </span>
-                            <span>•</span>
-                            <span>
-                              User:{' '}
-                              <strong className="text-gray-200">
-                                {conn.connectedUser || 'Authorized User'}
-                              </strong>
-                            </span>
-                            <span>•</span>
-                            <span>
-                              Last Check:{' '}
-                              <strong className="text-gray-300">
-                                {conn.lastSuccessfulCheck}
-                              </strong>
-                            </span>
-                            <span>•</span>
-                            <span className="text-[10px] font-mono text-cyan-300">
-                              OAuth 2.1 (PKCE S256 Vault)
-                            </span>
-                            <span>•</span>
-                            <a
-                              href={`https://app.hubspot.com/reports-dashboard/${conn.portalId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#2F6FED] hover:underline inline-flex items-center gap-1"
-                            >
-                              <span>HubSpot</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Actions */}
-                      <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
-                        {!isSelected ? (
-                          <button
-                            onClick={() => handleSelectAccount(conn.portalId)}
-                            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#2F6FED] to-blue-600 hover:from-[#2558c4] hover:to-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20 transition-all"
-                          >
-                            <Bot className="w-3.5 h-3.5" />
-                            <span>Select Account</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleSelectForAnna}
-                            className="px-3 py-1.5 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-blue-300 text-xs font-semibold flex items-center gap-1.5"
-                          >
-                            <Bot className="w-3.5 h-3.5 text-[#2F6FED]" />
-                            <span>Selected for Anna</span>
-                          </button>
-                        )}
-
-                        <button
-                          onClick={handleRefreshData}
-                          disabled={isRefreshing}
-                          className="px-3 py-1.5 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] border border-[#1E293B] text-xs font-semibold text-gray-200 hover:text-white flex items-center gap-1.5 transition-all"
-                          title="Refresh Connection"
-                        >
-                          <RefreshCw
-                            className={`w-3.5 h-3.5 text-[#FF5C00] ${
-                              isRefreshing && isSelected ? 'animate-spin' : ''
-                            }`}
-                          />
-                          <span>Refresh</span>
-                        </button>
-
-                        <button
-                          onClick={handleForceSync}
-                          disabled={isSyncing}
-                          className="px-3 py-1.5 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] border border-[#1E293B] text-xs font-semibold text-gray-200 hover:text-white flex items-center gap-1.5 transition-all"
-                          title="Sync Schema"
-                        >
-                          <Database className="w-3.5 h-3.5 text-[#2F6FED]" />
-                          <span>Sync Schema</span>
-                        </button>
-
-                        <button
-                          onClick={() => setShowHealthDashboard(true)}
-                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-all"
-                        >
-                          <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Run CRM Audit</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleDisconnect(conn.portalId)}
-                          className="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
-                        >
-                          <Unlink className="w-3.5 h-3.5" />
-                          <span>Disconnect</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Last Successful Sync</div>
+              <div className="text-sm font-medium text-slate-300 mt-1 truncate">
+                {activeConnection.lastSuccessfulCheck || 'Just now'}
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* SECTION 2 — SELECTED PORTAL OVERVIEW                           */}
-      {/* ------------------------------------------------------------- */}
-      {activeConnection && schema && (
-        <div className="bg-[#0B0F19] border border-[#1E293B] rounded-3xl p-6 shadow-2xl space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1E293B]">
-            <div className="space-y-1">
-              <div className="text-[11px] font-mono uppercase text-[#2F6FED] tracking-wider font-bold">
-                SECTION 2 • LIVE PORTAL OVERVIEW
-              </div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-white">
-                Selected Account: {activeConnection.portalName}
-              </h2>
-              <div className="text-xs text-gray-400 flex flex-wrap items-center gap-2">
-                <span>
-                  Portal ID:{' '}
-                  <strong className="font-mono text-white">
-                    #{activeConnection.portalId}
-                  </strong>
-                </span>
-                <span>•</span>
-                <span className="text-emerald-400">
-                  Status: {activeConnection.status} (Verified Live)
-                </span>
-                <span>•</span>
-                <span>
-                  Authorized Scopes: {activeConnection.installedScopes.length}
-                </span>
+      {/* Warning if account needs re-authentication */}
+      {activeConnection?.status === 'NEEDS_REAUTH' && (
+        <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+            <div>
+              <div className="font-semibold text-amber-300">Action Required: Reconnect HubSpot Account</div>
+              <div className="text-xs text-amber-400/80 mt-1">
+                Account #{activeConnection.portalId} does not have active OAuth tokens. Please authorize it with HubSpot to view live contacts, companies, and deals.
               </div>
             </div>
+          </div>
+          <button
+            onClick={() => (window.location.href = '/api/integrations/hubspot/mcp/authorize')}
+            className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs whitespace-nowrap transition active:scale-95"
+          >
+            Authorize with HubSpot
+          </button>
+        </div>
+      )}
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowHealthDashboard(!showHealthDashboard)}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all"
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>
-                  {showHealthDashboard ? 'Hide CRM Audit' : 'Show CRM Audit'}
+      {/* D. LIVE CRM OVERVIEW (6 CLEAN METRIC CARDS) */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-white tracking-tight">Live CRM Overview</h2>
+          <span className="text-xs text-slate-400">
+            Portal ID: <span className="font-mono text-slate-300">#{selectedPortalId || '—'}</span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* 1. Total Contacts */}
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-medium">Total Contacts</span>
+              <Users className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="text-2xl font-bold text-white mt-2">
+              {isLoadingMetrics ? (
+                <div className="h-7 w-16 bg-white/5 animate-pulse rounded" />
+              ) : unifiedMetrics?.contacts?.status === 'verified' ? (
+                unifiedMetrics.contacts.total?.toLocaleString() ?? '0'
+              ) : (
+                <span className="text-xs text-amber-400 font-normal">
+                  {unifiedMetrics?.contacts?.status === 'unavailable' ? 'Unavailable' : 'Needs Reauth'}
                 </span>
-              </button>
-
-              <button
-                onClick={handleSelectForAnna}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#FF5C00] to-[#E04F00] hover:opacity-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#FF5C00]/20 transition-all"
-              >
-                <Bot className="w-3.5 h-3.5" />
-                <span>Ask Anna About This Portal</span>
-              </button>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {unifiedMetrics?.contacts?.status === 'verified' ? 'Verified via API' : 'HubSpot /contacts'}
             </div>
           </div>
 
-          {/* 6 Key Verified CRM Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="p-3.5 rounded-2xl bg-[#080D1A] border border-[#1E293B] space-y-1">
-              <div className="text-[10px] text-gray-400 font-medium uppercase font-mono">
-                Total Contacts
-              </div>
-              <div className="text-xl font-extrabold text-white">
-                {isLoadingMetrics
-                  ? '...'
-                  : unifiedMetrics?.contacts.total !== null &&
-                    unifiedMetrics?.contacts.total !== undefined
-                  ? unifiedMetrics.contacts.total
-                  : 'Unavailable'}
-              </div>
-              <div className="text-[10px] text-emerald-400">
-                {unifiedMetrics?.contacts.status === 'verified'
-                  ? 'Verified via API'
-                  : unifiedMetrics?.contacts.status || 'Checking...'}
-              </div>
+          {/* 2. Total Companies */}
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-medium">Companies</span>
+              <Building className="w-4 h-4 text-purple-400" />
             </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#080D1A] border border-[#1E293B] space-y-1">
-              <div className="text-[10px] text-gray-400 font-medium uppercase font-mono">
-                Companies
-              </div>
-              <div className="text-xl font-extrabold text-white">
-                {isLoadingMetrics
-                  ? '...'
-                  : unifiedMetrics?.companies.total !== null &&
-                    unifiedMetrics?.companies.total !== undefined
-                  ? unifiedMetrics.companies.total
-                  : 'Unavailable'}
-              </div>
-              <div className="text-[10px] text-gray-400">
-                {unifiedMetrics?.companies.status === 'verified'
-                  ? 'CRM Accounts'
-                  : unifiedMetrics?.companies.status || 'Checking...'}
-              </div>
+            <div className="text-2xl font-bold text-white mt-2">
+              {isLoadingMetrics ? (
+                <div className="h-7 w-16 bg-white/5 animate-pulse rounded" />
+              ) : unifiedMetrics?.companies?.status === 'verified' ? (
+                unifiedMetrics.companies.total?.toLocaleString() ?? '0'
+              ) : (
+                <span className="text-xs text-amber-400 font-normal">
+                  {unifiedMetrics?.companies?.status === 'unavailable' ? 'Unavailable' : 'Needs Reauth'}
+                </span>
+              )}
             </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#080D1A] border border-[#1E293B] space-y-1">
-              <div className="text-[10px] text-gray-400 font-medium uppercase font-mono">
-                Deals
-              </div>
-              <div className="text-xl font-extrabold text-white">
-                {isLoadingMetrics
-                  ? '...'
-                  : unifiedMetrics?.deals.total !== null &&
-                    unifiedMetrics?.deals.total !== undefined
-                  ? unifiedMetrics.deals.total
-                  : 'Unavailable'}
-              </div>
-              <div className="text-[10px] text-cyan-300">
-                {unifiedMetrics?.deals.formattedPipelineValue
-                  ? `${unifiedMetrics.deals.formattedPipelineValue} Pipeline`
-                  : 'Pipeline'}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#080D1A] border border-[#1E293B] space-y-1">
-              <div className="text-[10px] text-gray-400 font-medium uppercase font-mono">
-                Deal Pipelines
-              </div>
-              <div className="text-xl font-extrabold text-white">
-                {schema.pipelines.deals.length || 1}
-              </div>
-              <div className="text-[10px] text-gray-400">
-                {schema.pipelines.deals[0]?.stages.length || 7} Stages Verified
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#080D1A] border border-[#1E293B] space-y-1">
-              <div className="text-[10px] text-gray-400 font-medium uppercase font-mono">
-                Workflows
-              </div>
-              <div className="text-xl font-extrabold text-white">
-                {isLoadingMetrics
-                  ? '...'
-                  : unifiedMetrics?.workflows.total !== null &&
-                    unifiedMetrics?.workflows.total !== undefined
-                  ? unifiedMetrics.workflows.total
-                  : unifiedMetrics?.workflows.status === 'permission_denied'
-                  ? 'Permission Req.'
-                  : schema.existingWorkflows.length}
-              </div>
-              <div className="text-[10px] text-amber-400">
-                {unifiedMetrics?.workflows.active !== null &&
-                unifiedMetrics?.workflows.active !== undefined
-                  ? `${unifiedMetrics.workflows.active} Active / ${unifiedMetrics.workflows.inactive ?? 0} Inactive`
-                  : unifiedMetrics?.workflows.status === 'permission_denied'
-                  ? 'Scope: automation'
-                  : 'Safe Drafts'}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#080D1A] border border-[#1E293B] space-y-1">
-              <div className="text-[10px] text-gray-400 font-medium uppercase font-mono">
-                HubSpot Owners
-              </div>
-              <div className="text-xl font-extrabold text-white">
-                {isLoadingMetrics
-                  ? '...'
-                  : unifiedMetrics?.owners.total !== null &&
-                    unifiedMetrics?.owners.total !== undefined
-                  ? unifiedMetrics.owners.total
-                  : schema.owners.length || 'Unavailable'}
-              </div>
-              <div className="text-[10px] text-gray-400">Active CRM Reps</div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {unifiedMetrics?.companies?.status === 'verified' ? 'CRM Accounts' : 'HubSpot /companies'}
             </div>
           </div>
 
-          {/* Granted Scopes Chips */}
-          <div className="pt-3 border-t border-[#1E293B] space-y-2">
-            <div className="text-[11px] font-mono uppercase text-gray-400 font-semibold flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-[#FF5C00]" />
-                <span>Active Scopes for Portal #{activeConnection.portalId}</span>
-              </span>
-              <span>{activeConnection.installedScopes.length} Scopes Active</span>
+          {/* 3. Total Deals */}
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-medium">Total Deals</span>
+              <DollarSign className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {activeConnection.installedScopes.map((scope) => (
-                <span
-                  key={scope}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#080D1A] border border-[#1E293B] text-gray-300"
+            <div className="text-2xl font-bold text-white mt-2">
+              {isLoadingMetrics ? (
+                <div className="h-7 w-16 bg-white/5 animate-pulse rounded" />
+              ) : unifiedMetrics?.deals?.status === 'verified' ? (
+                unifiedMetrics.deals.total?.toLocaleString() ?? '0'
+              ) : (
+                <span className="text-xs text-amber-400 font-normal">
+                  {unifiedMetrics?.deals?.status === 'unavailable' ? 'Unavailable' : 'Needs Reauth'}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {unifiedMetrics?.deals?.status === 'verified' ? 'All Pipelines' : 'HubSpot /deals'}
+            </div>
+          </div>
+
+          {/* 4. Open Deals */}
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-medium">Open Deals</span>
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-bold text-white mt-2">
+              {isLoadingMetrics ? (
+                <div className="h-7 w-20 bg-white/5 animate-pulse rounded" />
+              ) : unifiedMetrics?.deals?.status === 'verified' ? (
+                unifiedMetrics.deals.openCount != null
+                  ? unifiedMetrics.deals.openCount.toLocaleString()
+                  : unifiedMetrics.deals.total?.toLocaleString() ?? '0'
+              ) : (
+                <span className="text-xs text-amber-400 font-normal">
+                  {unifiedMetrics?.deals?.status === 'unavailable' ? 'Unavailable' : 'Needs Reauth'}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">
+              {unifiedMetrics?.deals?.formattedPipelineValue
+                ? `${unifiedMetrics.deals.formattedPipelineValue} Pipeline`
+                : 'Pipeline Value'}
+            </div>
+          </div>
+
+          {/* 5. Total Deal Pipelines */}
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-medium">Deal Pipelines</span>
+              <Layers className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="text-2xl font-bold text-white mt-2">
+              {isLoadingMetrics ? (
+                <div className="h-7 w-12 bg-white/5 animate-pulse rounded" />
+              ) : unifiedMetrics?.dealPipelines?.status === 'verified' ? (
+                unifiedMetrics.dealPipelines.total ?? '0'
+              ) : (
+                <span className="text-xs text-slate-400 font-normal">Unavailable</span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {unifiedMetrics?.dealPipelines?.totalStages != null
+                ? `${unifiedMetrics.dealPipelines.totalStages} Total Stages`
+                : 'Pipeline schema'}
+            </div>
+          </div>
+
+          {/* 6. Active Workflows */}
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-medium">Workflows</span>
+              <Workflow className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-2xl font-bold text-white mt-2">
+              {isLoadingMetrics ? (
+                <div className="h-7 w-12 bg-white/5 animate-pulse rounded" />
+              ) : unifiedMetrics?.workflows?.status === 'verified' ? (
+                (unifiedMetrics.workflows.active ?? unifiedMetrics.workflows.total) ?? '0'
+              ) : (
+                <span className="text-xs text-slate-400 font-normal">
+                  {unifiedMetrics?.workflows?.status === 'permission_denied' ? 'Scope Limited' : 'Unavailable'}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {unifiedMetrics?.workflows?.status === 'permission_denied' ? 'OAuth Scope Limited' : 'Automation Hub'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* E. CRM DATA TABS (Contacts | Companies | Deals | Pipelines) */}
+      <div className="bg-[#0F1626] border border-white/10 rounded-2xl p-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+          <div className="flex items-center gap-2">
+            {(['contacts', 'companies', 'deals', 'pipelines'] as CrmTab[]).map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium capitalize transition ${
+                    isActive
+                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                      : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                  }`}
                 >
-                  {scope}
-                </span>
-              ))}
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center gap-2 text-xs text-slate-400 self-end sm:self-center">
+            {pageCursorHistory.length > 0 && (
+              <button
+                onClick={handlePrevPage}
+                disabled={isLoadingRecords}
+                className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-white transition disabled:opacity-50"
+              >
+                Previous
+              </button>
+            )}
+            {tabPaging?.next?.after && (
+              <button
+                onClick={handleNextPage}
+                disabled={isLoadingRecords}
+                className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-white transition disabled:opacity-50"
+              >
+                Next Page
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Content Display */}
+        <div className="mt-4">
+          {isLoadingRecords ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-400 text-sm gap-3">
+              <RefreshCw className="w-6 h-6 animate-spin text-orange-400" />
+              <span>Fetching live {activeTab} from HubSpot portal #{selectedPortalId}...</span>
             </div>
-          </div>
-        </div>
-      )}
+          ) : tabError ? (
+            <div className="py-10 px-4 text-center">
+              <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-2 opacity-80" />
+              <div className="text-sm font-semibold text-slate-300">Data Unavailable for this Account</div>
+              <div className="text-xs text-slate-400 mt-1 max-w-md mx-auto">{tabError}</div>
+              {activeConnection?.status === 'NEEDS_REAUTH' && (
+                <button
+                  onClick={() => (window.location.href = '/api/integrations/hubspot/mcp/authorize')}
+                  className="mt-4 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition"
+                >
+                  Reconnect Account
+                </button>
+              )}
+            </div>
+          ) : tabRecords.length === 0 ? (
+            <div className="py-12 text-center text-sm text-slate-400">
+              No {activeTab} found in this HubSpot portal.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {/* TAB 1: CONTACTS */}
+              {activeTab === 'contacts' && (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#090D16] text-slate-400 uppercase tracking-wider font-semibold border-b border-white/5">
+                    <tr>
+                      <th className="py-3 px-4">Contact Name</th>
+                      <th className="py-3 px-4">Email</th>
+                      <th className="py-3 px-4">Contact Owner</th>
+                      <th className="py-3 px-4">Create Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-slate-300">
+                    {tabRecords.map((c) => (
+                      <tr key={c.id} className="hover:bg-white/[0.02] transition">
+                        <td className="py-3 px-4 font-medium text-white">{c.name}</td>
+                        <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">{c.email}</td>
+                        <td className="py-3 px-4">{c.owner}</td>
+                        <td className="py-3 px-4 text-slate-400">{formatDate(c.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* SECTION 3 — SELECTED PORTAL CRM AUDIT                          */}
-      {/* ------------------------------------------------------------- */}
-      {showHealthDashboard && activeConnection && (
-        <div className="space-y-4">
-          <div className="text-[11px] font-mono uppercase text-emerald-400 font-bold tracking-wider">
-            SECTION 3 • DYNAMIC CRM AUDIT FOR #{activeConnection.portalId}
-          </div>
-          <PortalHealthDashboard
-            portalId={activeConnection.portalId}
-            onOpenBuildModeWithPrompt={onOpenBuildWithPrompt}
-            onClose={() => setShowHealthDashboard(false)}
-          />
-        </div>
-      )}
+              {/* TAB 2: COMPANIES */}
+              {activeTab === 'companies' && (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#090D16] text-slate-400 uppercase tracking-wider font-semibold border-b border-white/5">
+                    <tr>
+                      <th className="py-3 px-4">Company Name</th>
+                      <th className="py-3 px-4">Domain</th>
+                      <th className="py-3 px-4">Company Owner</th>
+                      <th className="py-3 px-4">Create Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-slate-300">
+                    {tabRecords.map((co) => (
+                      <tr key={co.id} className="hover:bg-white/[0.02] transition">
+                        <td className="py-3 px-4 font-medium text-white">{co.name}</td>
+                        <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">{co.domain}</td>
+                        <td className="py-3 px-4">{co.owner}</td>
+                        <td className="py-3 px-4 text-slate-400">{formatDate(co.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-      {/* ============================================================= */}
-      {/* CONNECT HUBSPOT PORTAL MODAL                                  */}
-      {/* ============================================================= */}
+              {/* TAB 3: DEALS */}
+              {activeTab === 'deals' && (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#090D16] text-slate-400 uppercase tracking-wider font-semibold border-b border-white/5">
+                    <tr>
+                      <th className="py-3 px-4">Deal Name</th>
+                      <th className="py-3 px-4">Amount</th>
+                      <th className="py-3 px-4">Pipeline</th>
+                      <th className="py-3 px-4">Stage</th>
+                      <th className="py-3 px-4">Deal Owner</th>
+                      <th className="py-3 px-4">Create Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-slate-300">
+                    {tabRecords.map((d) => (
+                      <tr key={d.id} className="hover:bg-white/[0.02] transition">
+                        <td className="py-3 px-4 font-medium text-white">{d.dealname}</td>
+                        <td className="py-3 px-4 font-semibold text-emerald-400">
+                          {d.amount != null ? formatCurrency(d.amount) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-400">{d.pipeline}</td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px]">
+                            {d.dealstage}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">{d.owner}</td>
+                        <td className="py-3 px-4 text-slate-400">{formatDate(d.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* TAB 4: PIPELINES */}
+              {activeTab === 'pipelines' && (
+                <div className="space-y-4 py-2">
+                  {tabRecords.map((p) => (
+                    <div key={p.id} className="p-4 bg-[#090D16] border border-white/5 rounded-xl">
+                      <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                        <div className="font-semibold text-white text-sm">{p.label}</div>
+                        <span className="text-xs text-slate-400 font-mono">ID: {p.id}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(p.stages || []).map((stage: any, idx: number) => (
+                          <div
+                            key={stage.id}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-xs text-slate-300"
+                          >
+                            <span className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-[10px] font-bold">
+                              {stage.displayOrder != null ? stage.displayOrder + 1 : idx + 1}
+                            </span>
+                            <span className="font-medium">{stage.label}</span>
+                            {stage.probability != null && (
+                              <span className="text-slate-400 text-[10px]">({Math.round(stage.probability * 100)}%)</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CONNECT HUBSPOT ACCOUNT MODAL */}
       {isConnectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-[#0B0F19] border border-[#1E293B] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6 text-white max-h-[90vh] overflow-y-auto">
-            {/* Close Button */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#0F1626] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
             <button
               onClick={() => setIsConnectModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-[#131B2E] text-gray-400 hover:text-white hover:bg-[#1E293B] transition-colors"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
 
-            {/* Modal Header */}
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#FF5C00]/15 border border-[#FF5C00]/30 flex items-center justify-center text-[#FF5C00] shrink-0">
-                <Radio className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-lg font-extrabold text-white">Connect HubSpot Account</h3>
-                <p className="text-xs text-gray-400">
-                  Connect any HubSpot portal dynamically via Official OAuth 2.0 or Direct Portal ID.
-                </p>
-              </div>
-            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight">Connect HubSpot Account</h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Connect any HubSpot portal dynamically via Official OAuth 2.0 or Direct Token.
+            </p>
 
-            {/* Connection Tabs */}
-            <div className="grid grid-cols-2 p-1 rounded-xl bg-[#080D1A] border border-[#1E293B] text-xs font-semibold">
+            <div className="flex rounded-xl bg-[#090D16] p-1 border border-white/10 mt-4">
               <button
                 type="button"
                 onClick={() => setConnectTab('OAUTH')}
-                className={`py-2 rounded-lg transition-all text-center ${
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                   connectTab === 'OAUTH'
-                    ? 'bg-[#FF5C00] text-white shadow-md'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-orange-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 HubSpot OAuth 2.0
@@ -965,132 +1002,95 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
               <button
                 type="button"
                 onClick={() => setConnectTab('DIRECT')}
-                className={`py-2 rounded-lg transition-all text-center ${
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                   connectTab === 'DIRECT'
-                    ? 'bg-[#2F6FED] text-white shadow-md'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-orange-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Direct Portal Connect
               </button>
             </div>
 
-            {/* Tab 1: OAuth */}
-            {connectTab === 'OAUTH' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-[#0E1526] border border-[#1E293B] space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-white">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            {connectTab === 'OAUTH' ? (
+              <div className="mt-5 space-y-4">
+                <div className="p-3.5 bg-white/5 rounded-xl border border-white/5 text-xs text-slate-300 space-y-2">
+                  <div className="flex items-center gap-2 text-orange-400 font-semibold">
+                    <ShieldCheck className="w-4 h-4" />
                     <span>Official HubSpot App Authorization</span>
                   </div>
-                  <p className="text-xs text-gray-300 leading-relaxed">
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
                     Authenticate via HubSpot&apos;s standard OAuth flow with PKCE S256 encryption. You can choose which portal from your HubSpot account to authorize.
                   </p>
-                  <div className="text-[11px] font-mono text-gray-400 bg-[#080D1A] p-2.5 rounded-lg border border-[#1E293B]">
-                    Redirect Endpoint: <span className="text-[#FF5C00]">/api/integrations/hubspot/mcp/callback</span>
-                  </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={handleLaunchOAuthRedirect}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#FF5C00] to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#FF5C00]/25 transition-all"
+                  onClick={() => (window.location.href = '/api/integrations/hubspot/mcp/authorize')}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition shadow-lg shadow-orange-600/20 active:scale-95"
                 >
                   <span>Authorize with HubSpot OAuth</span>
                   <ExternalLink className="w-4 h-4" />
                 </button>
               </div>
-            )}
-
-            {/* Tab 2: Direct Portal Form */}
-            {connectTab === 'DIRECT' && (
-              <form onSubmit={handleAddPortal} className="space-y-4">
-                <div className="p-3.5 rounded-2xl bg-[#0E1526] border border-[#1E293B] text-xs text-gray-300">
-                  Connect any HubSpot account instantly by providing its Portal ID and optional Private App Token.
+            ) : (
+              <form onSubmit={handleAddManualPortal} className="mt-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    HubSpot Portal ID <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 39611297"
+                    value={manualPortalId}
+                    onChange={(e) => setManualPortalId(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#090D16] border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                  />
                 </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-mono uppercase text-gray-400 font-semibold mb-1">
-                      HubSpot Portal ID (Hub ID) *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. 48392019"
-                      value={manualPortalId}
-                      onChange={(e) => setManualPortalId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#080D1A] border border-[#1E293B] focus:border-[#2F6FED] text-white text-xs font-mono outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-mono uppercase text-gray-400 font-semibold mb-1">
-                      Portal / Account Label (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Client Production CRM or Personal Portal"
-                      value={manualPortalName}
-                      onChange={(e) => setManualPortalName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#080D1A] border border-[#1E293B] focus:border-[#2F6FED] text-white text-xs outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-mono uppercase text-gray-400 font-semibold mb-1">
-                      Private App Access Token (Optional for Live API Sync)
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="pat-na1-... or Bearer Token"
-                      value={manualToken}
-                      onChange={(e) => setManualToken(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#080D1A] border border-[#1E293B] focus:border-[#2F6FED] text-white text-xs font-mono outline-none"
-                    />
-                    <span className="text-[10px] text-gray-500 mt-1 block">
-                      Leave empty to connect with standard schema; provide Private App token to sync live contacts, deals, and workflows.
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-mono uppercase text-gray-400 font-semibold mb-1">
-                      Authorized User Email (Optional)
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="user@example.com"
-                      value={manualUser}
-                      onChange={(e) => setManualUser(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#080D1A] border border-[#1E293B] focus:border-[#2F6FED] text-white text-xs outline-none"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Account Display Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. HuboExperts Production"
+                    value={manualPortalName}
+                    onChange={(e) => setManualPortalName(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#090D16] border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                  />
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsConnectModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl bg-[#131B2E] hover:bg-[#1E293B] text-gray-300 text-xs font-semibold transition-colors"
-                  >
-                    Cancel
-                  </button>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Access Token / Private App Token (PAT)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="pat-na1-... or access token"
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#090D16] border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Authorized User Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. user@company.com"
+                    value={manualUser}
+                    onChange={(e) => setManualUser(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#090D16] border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={isAddingManual || !manualPortalId.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2F6FED] to-blue-600 hover:from-[#2558c4] hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#2F6FED]/25 transition-all disabled:opacity-50"
+                    disabled={isAddingManual}
+                    className="w-full py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition disabled:opacity-50"
                   >
-                    {isAddingManual ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Connecting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Connect &amp; Switch Portal</span>
-                      </>
-                    )}
+                    {isAddingManual ? 'Connecting...' : 'Connect Portal'}
                   </button>
                 </div>
               </form>

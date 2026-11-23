@@ -19,9 +19,9 @@ export default function AppHomePage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Dynamic Active Portal State across the workspace
-  const [activePortalId, setActivePortalId] = useState<string>('46100478');
-  const [activePortalName, setActivePortalName] = useState<string>('HubSpot Demo Account');
-  const [isPortalConnected, setIsPortalConnected] = useState<boolean>(true);
+  const [activePortalId, setActivePortalId] = useState<string>('');
+  const [activePortalName, setActivePortalName] = useState<string>('');
+  const [isPortalConnected, setIsPortalConnected] = useState<boolean>(false);
 
   // Hydrate active portal from server & check URL search params on mount
   React.useEffect(() => {

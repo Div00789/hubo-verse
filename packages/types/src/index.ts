@@ -691,6 +691,11 @@ export interface UnifiedPortalMetrics {
     formattedPipelineValue: string;
     status: MetricVerificationStatus;
   };
+  dealPipelines?: {
+    total: number | null;
+    totalStages?: number | null;
+    status: MetricVerificationStatus;
+  };
   owners: {
     total: number | null;
     status: MetricVerificationStatus;

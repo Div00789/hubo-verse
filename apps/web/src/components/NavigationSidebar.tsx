@@ -235,7 +235,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
           </div>
           <div className="text-xs text-white font-medium truncate mt-0.5">{portalName}</div>
           <div className="text-[10px] text-gray-400 font-mono">
-            {isPortalConnected ? `Portal #${portalId || '46100478'}` : 'No Portal Connected'}
+            {isPortalConnected && portalId ? `Portal #${portalId}` : 'No Portal Connected'}
           </div>
         </div>
       </div>

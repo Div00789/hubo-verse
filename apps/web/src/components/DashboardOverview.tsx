@@ -25,9 +25,9 @@ interface DashboardOverviewProps {
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onNavigate,
-  portalId = '46100478',
-  portalName = 'HubSpot Demo Account',
-  isPortalConnected = true,
+  portalId,
+  portalName,
+  isPortalConnected = false,
 }) => {
   const nextClass = DEMO_LIVE_CLASSES[0];
   const activeProject = DEMO_PROJECTS[0];

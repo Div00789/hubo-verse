@@ -177,8 +177,8 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({
   portalId,
   portalName,
 }) => {
-  const activePortalId = portalId || '46100478';
-  const activePortalName = portalName || 'HubSpot Connected Account';
+  const activePortalId = portalId || '';
+  const activePortalName = portalName || (activePortalId ? `HubSpot Portal #${activePortalId}` : 'HubSpot Connected Account');
   const [messages, setMessages] = useState<AnnaChatMessage[]>(INITIAL_ANNA_MESSAGES);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -294,7 +294,7 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
           <span className="text-white font-bold">Anna Chat Mode</span>
-          <span className="text-gray-400 hidden sm:inline">• Live HubSpot Read-Only Intelligence (Portal #{DEMO_HUBSPOT_CONNECTION.portalId})</span>
+          <span className="text-gray-400 hidden sm:inline">• Live HubSpot Intelligence {activePortalId ? `(Portal #${activePortalId})` : ''}</span>
         </div>
 
         <button

@@ -517,9 +517,26 @@ let runtimeDeployments: WorkflowDeploymentRecord[] = [
 ];
 
 export function getPortalSchemaRegistry(portalId: string): PortalSchemaRegistry {
-  return runtimeSchemaRegistry[portalId] || {
-    ...DEMO_PORTAL_SCHEMA_REGISTRY,
+  if (runtimeSchemaRegistry[portalId]) {
+    return runtimeSchemaRegistry[portalId];
+  }
+  return {
     portalId,
+    portalName: `Portal #${portalId}`,
+    refreshedAt: new Date().toISOString(),
+    properties: {
+      contacts: [],
+      deals: [],
+      companies: [],
+      tickets: [],
+    },
+    pipelines: {
+      deals: [],
+    },
+    owners: [],
+    lists: [],
+    marketingEmails: [],
+    existingWorkflows: [],
   };
 }
 
@@ -677,15 +694,47 @@ function getStore(): StoreData {
   return memoryStore;
 }
 
+function normalizeConnectionStatus(conn: PersistentConnectionRecord): 'CONNECTED' | 'NEEDS_REAUTH' | 'DISCONNECTED' {
+  if (conn.status === 'DISCONNECTED' || conn.connectionStatus === 'DISCONNECTED') {
+    return 'DISCONNECTED';
+  }
+  const hasToken = Boolean(
+    conn.accessToken ||
+    conn.refreshToken ||
+    conn.encryptedAccessToken ||
+    conn.encryptedRefreshToken
+  );
+  if (!hasToken) {
+    return 'NEEDS_REAUTH';
+  }
+  return 'CONNECTED';
+}
+
 export function getAllPersistentConnections(): PersistentConnectionRecord[] {
   const store = getStore();
-  return Object.values(store.connections);
+  return Object.values(store.connections).map((c) => {
+    const status = normalizeConnectionStatus(c);
+    return {
+      ...c,
+      status,
+      connectionStatus: status,
+      isLiveConnected: status === 'CONNECTED',
+    };
+  });
 }
 
 export function getPersistentConnectionByPortalId(portalId: string): PersistentConnectionRecord | null {
   const store = getStore();
   const cleanId = String(portalId).trim();
-  return store.connections[cleanId] || null;
+  const c = store.connections[cleanId];
+  if (!c) return null;
+  const status = normalizeConnectionStatus(c);
+  return {
+    ...c,
+    status,
+    connectionStatus: status,
+    isLiveConnected: status === 'CONNECTED',
+  };
 }
 
 export function getPersistentConnectionById(connectionId: string): PersistentConnectionRecord | null {

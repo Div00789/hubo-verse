@@ -179,6 +179,16 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
+    if (action === 'delete') {
+      const targetPortalId = String(portalId || '');
+      deleteHubSpotConnection(targetPortalId);
+      return NextResponse.json({
+        success: true,
+        action: 'delete',
+        portalId: targetPortalId,
+      });
+    }
+
     if (action === 'disconnect') {
       const targetPortalId = String(portalId || '');
       const existing = getHubSpotConnectionByPortalId(targetPortalId);
