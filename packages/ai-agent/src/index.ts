@@ -21,6 +21,7 @@ import {
   DEMO_PORTAL_SCHEMA_REGISTRY,
   getPortalSchemaRegistry,
   recordWorkflowDeployment,
+  getPersistentConnectionByPortalId,
 } from '@huboverse/database';
 
 /**
@@ -105,18 +106,36 @@ export class HuboVerseBuildModeArchitect {
       (combinedContext.includes('follow-up') && combinedContext.includes('task'))
     ) {
       // Check if user specified owner assignment or if it needs clarification
+      const matchedOwner = schema.owners?.find(
+        (o) =>
+          (o.firstName && combinedContext.includes(o.firstName.toLowerCase())) ||
+          (o.lastName && combinedContext.includes(o.lastName.toLowerCase())) ||
+          (o.email && combinedContext.includes(o.email.toLowerCase())) ||
+          combinedContext.includes(o.id.toLowerCase())
+      );
+
       const hasOwnerSpec =
+        Boolean(matchedOwner) ||
         combinedContext.includes('owner') ||
         combinedContext.includes('rep') ||
         combinedContext.includes('round-robin') ||
-        combinedContext.includes('sarah') ||
-        combinedContext.includes('divyanshu');
+        combinedContext.includes('round robin') ||
+        combinedContext.includes('sales') ||
+        combinedContext.includes('team') ||
+        combinedContext.includes('myself') ||
+        combinedContext.includes('contact owner') ||
+        combinedContext.includes('assign');
 
       if (!hasOwnerSpec && !combinedContext.includes('assign to record owner')) {
+        const availableOwnersText =
+          schema.owners && schema.owners.length > 0
+            ? schema.owners.map((o) => `${o.firstName} ${o.lastName}`.trim() || o.email).join(', ')
+            : 'Contact Owner, Sales Rep';
+
         return {
           status: 'NEEDS_CLARIFICATION',
           clarification_question:
-            'Which existing HubSpot owner should receive the follow-up task? (e.g. Assign to Contact Owner, Divyanshu Tuli, or Sarah Connor?)',
+            `Which existing HubSpot owner should receive the follow-up task? (e.g. Assign to Contact Owner, or choose from portal owners: ${availableOwnersText})`,
           missing_dependencies: ['Verified task assignee or owner rule'],
           summary: 'Lead follow-up task automation waiting for owner assignment rule.',
           workflow: null,
@@ -126,6 +145,7 @@ export class HuboVerseBuildModeArchitect {
       // Check lifecycle stage or lead source filter
       const lifecycleProp = schema.properties.contacts.find((p) => p.name === 'lifecyclestage');
       const verifiedPropName = lifecycleProp ? lifecycleProp.name : 'lifecyclestage';
+      const assignedOwnerId = matchedOwner ? matchedOwner.id : schema.owners[0]?.id || 'contact_owner';
 
       const blueprint: WorkflowBlueprint = {
         status: 'READY',
@@ -153,12 +173,12 @@ export class HuboVerseBuildModeArchitect {
             {
               stepId: 'step_1',
               actionType: 'CREATE_TASK',
-              description: 'Create follow-up task for Contact Owner',
+              description: `Create follow-up task for ${matchedOwner ? `${matchedOwner.firstName} ${matchedOwner.lastName}` : 'Contact Owner'}`,
               fields: {
                 subject: 'Call new website lead & verify qualification',
                 body: 'Review contact activity timeline, verify budget/timeline criteria, and log discovery notes.',
                 task_type: 'CALL',
-                owner_id: schema.owners[0]?.id || 'owner_101',
+                owner_id: assignedOwnerId,
                 due_in_days: 1,
               },
               nextStepId: 'step_2',
@@ -589,6 +609,10 @@ Do NOT use markdown tables (|---|), conversational filler, or polite sign-offs.`
   const apiKey = process.env.OPENAI_API_KEY;
   if (apiKey && apiKey.startsWith('sk-') && !apiKey.includes('demo')) {
     try {
+      const conn = getPersistentConnectionByPortalId(portalId);
+      const portalName = (state.portalContext as any)?.portalName || conn?.portalName || conn?.accountName || `HubSpot Portal #${portalId}`;
+      const userEmail = conn?.connectedUser || 'Authorized User';
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -603,51 +627,29 @@ Do NOT use markdown tables (|---|), conversational filler, or polite sign-offs.`
             {
               role: 'system',
               content: `You are Anna AI, the enterprise HubSpot CRM intelligence partner for HuboVerse.
-Connected Portal: HubSpot Demo Account (ID: #${portalId})
-Authorized User: Div Tuli (div@huboexperts.com)
+Connected Portal: ${portalName} (ID: #${portalId})
+Authorized User: ${userEmail}
 
 CORE INSTRUCTION:
-Provide an executive, evidence-backed CRM answer based strictly on this verified CRM fact-sheet:
+Provide an executive, evidence-backed CRM answer based strictly and exclusively on this verified CRM live result:
 ${JSON.stringify(crmResult, null, 2)}
 
-STRICT FORMATTING RULES:
-1. NEVER output markdown table pipes (| col | col |) or dash lines (|---|---|). No ASCII tables! Use clean bullet lists and highlighted metrics.
-2. NEVER include "Suggested Follow-Ups" or list suggested questions in your response body (the user interface displays clickable suggestion buttons directly below).
-3. NEVER include conversational filler or polite closing boilerplate (e.g. "Here is a breakdown", "If you need further assistance...", "Feel free to ask!").
-4. If this is a portal audit query, provide a comprehensive, structured 5-part report:
-   ### Comprehensive HubSpot Portal Audit (#${portalId})
-   **Section A: Portal Information**
-   • **Portal Name**: HubSpot Demo Account (ID: #${portalId})
-   • **Connection**: LIVE / VERIFIED (Auto-refreshing OAuth)
-   • **Audit Coverage**: Contacts, Companies, Deals, Tickets, Owners, Pipelines, Data Quality & Permissions
+STRICT GROUNDING RULES:
+1. NEVER invent, hallucinate, or estimate CRM statistics. Every number in your response MUST come directly from the data above.
+2. If any metric is "unavailable" or "permission_denied", clearly state that it is unavailable or requires additional permissions; NEVER substitute a dummy number or guess.
+3. NEVER output markdown table pipes (| col | col |) or dash lines (|---|---|). No ASCII tables! Use clean bullet lists and bold metrics.
+4. NEVER include "Suggested Follow-Ups" or list suggested questions in your response body (the user interface renders interactive suggestion pills below).
+5. NEVER include conversational filler or polite closing boilerplate (e.g. "Here is a breakdown", "If you need further assistance...", "Feel free to ask!").
+6. Provide a concise, professional structure:
+   ### [Title from CRM Result]
+   [1-sentence executive summary with Portal #${portalId}]
 
-   **Section B: Verified CRM Statistics**
-   • **Total Contacts**: **50** — Verified via live Search API
-   • **Total Companies**: **3** — 100% unassigned
-   • **Total Deals**: **10** — 8 Open ($4,605) / 2 Closed-Won ($500)
-   • **Pipeline Revenue**: **$5,105** — Exact sum of deal amounts
-   • **Service Tickets**: **0** — Verified zero backlog
-   • **CRM Owners**: **6** — Active team representatives
-   • **Workflows**: **12 Total** — 9 Active / 3 Inactive (Verified via Automation v4 API)
-
-   **Section C & D: Critical Findings & Recommendations**
-   • **[HIGH RISK] 42 Unassigned Contacts (84%)**: Inbound leads lack rep ownership, causing response latency. Fix: Deploy round-robin routing in Build Mode.
-   • **[HIGH RISK] 3 Unassigned Companies**: Accounts lack owners for account-based sales.
-   • **[MEDIUM RISK] 3 Deals Missing Amount & 2 Missing Close Dates**: Distorts pipeline forecast accuracy.
-   • **[MEDIUM RISK] 8 Contacts Missing Email**: Incomplete contact records need data enrichment.
-
-   **Section E: Recommended Action Plan**
-   1. **Deploy Round-Robin Lead Assignment** via Anna Build Mode (Supported, Low Complexity).
-   2. **Enforce Required Deal Amount & Close Date** at stage gates (Supported, Low Complexity).
-   3. **Upgrade to Account Service Key** to unlock automation workflow schema analysis.
-
-5. For standard questions, provide a concise 3-part answer:
-   ### [Title]
-   [Direct 1-sentence answer citing portal #${portalId}]
    **Key CRM Metrics:**
-   • **[Metric]**: **[Value]** — [Note]
-   **Actionable Insight:**
-   • [Note]`,
+   • [Metric Name]: [Metric Value] — [Verified Note]
+
+   **Actionable Insights:**
+   • [Insight bullet 1]
+   • [Insight bullet 2]`,
             },
             {
               role: 'user',

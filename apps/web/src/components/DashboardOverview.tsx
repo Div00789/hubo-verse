@@ -18,9 +18,17 @@ import { DEMO_HUBSPOT_CONNECTION, DEMO_LIVE_CLASSES, DEMO_PROJECTS } from '@hubo
 
 interface DashboardOverviewProps {
   onNavigate: (tab: 'anna' | 'portals' | 'academy' | 'projects' | 'settings', mode?: 'CHAT' | 'BUILD') => void;
+  portalId?: string;
+  portalName?: string;
+  isPortalConnected?: boolean;
 }
 
-export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate }) => {
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
+  onNavigate,
+  portalId = '46100478',
+  portalName = 'HubSpot Demo Account',
+  isPortalConnected = true,
+}) => {
   const nextClass = DEMO_LIVE_CLASSES[0];
   const activeProject = DEMO_PROJECTS[0];
 
@@ -39,7 +47,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               Executive Overview Dashboard
             </h1>
             <p className="text-xs sm:text-sm text-gray-300 max-w-xl leading-relaxed">
-              Connected to <strong>Portal #46100478</strong> (HubSpot Demo Account). Anna AI is primed to diagnose CRM workflows, analyze pipeline velocity, and safely commit verified schema mutations.
+              {isPortalConnected ? (
+                <>
+                  Connected to <strong>Portal #{portalId}</strong> ({portalName}). Anna AI is primed to diagnose CRM workflows, analyze pipeline velocity, and safely commit verified schema mutations.
+                </>
+              ) : (
+                <>
+                  No HubSpot account currently active. Connect an authorized portal to start diagnosing CRM workflows, inspecting pipelines, and running audits.
+                </>
+              )}
             </p>
           </div>
 
@@ -83,9 +99,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-lg font-bold text-white mt-2">Active &amp; Verified</div>
+          <div className="text-lg font-bold text-white mt-2">
+            {isPortalConnected ? 'Active & Verified' : 'No Account'}
+          </div>
           <div className="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
-            <span className="font-mono text-gray-300">Portal #46100478</span>
+            <span className="font-mono text-gray-300">
+              {isPortalConnected ? `Portal #${portalId}` : 'Connect Portal'}
+            </span>
             <span className="text-emerald-400 group-hover:underline">Inspect &rarr;</span>
           </div>
         </div>

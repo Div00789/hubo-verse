@@ -7,9 +7,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const clientId = process.env.HUBSPOT_CLIENT_ID;
   const clientSecret = process.env.HUBSPOT_CLIENT_SECRET;
-  const redirectUri =
-    process.env.HUBSPOT_REDIRECT_URI ||
-    `${request.nextUrl.origin}/api/auth/hubspot/callback`;
+  const origin = request.nextUrl.origin;
+  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+  const redirectUri = isLocalhost
+    ? `${origin}/api/auth/hubspot/callback`
+    : process.env.HUBSPOT_REDIRECT_URI || `${origin}/api/auth/hubspot/callback`;
 
   // Detect missing credentials
   if (!clientId || !clientSecret || clientId === 'demo_client_id') {

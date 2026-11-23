@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPortalSchemaRegistry, DEMO_HUBSPOT_CONNECTION } from '@huboverse/database';
+import { getPortalSchemaRegistry, getHubSpotConnectionByPortalId } from '@huboverse/database';
 import { HubSpotLiveDataService } from '@huboverse/hubspot-sdk';
 import type { PortalHealthAnalysis, PortalHealthRecommendation } from '@huboverse/types';
 
@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
   const portalId =
     request.nextUrl.searchParams.get('portalId') ||
     request.cookies.get('active_hubspot_portal')?.value ||
+    process.env.HUBSPOT_DEFAULT_PORTAL_ID ||
     '46100478';
 
   const schema = getPortalSchemaRegistry(portalId);
   const liveDataService = new HubSpotLiveDataService(portalId);
+  const conn = getHubSpotConnectionByPortalId(portalId);
 
   // Retrieve deterministic live audit from connected HubSpot portal
   const auditReport = await liveDataService.runPortalAudit();
@@ -49,8 +51,8 @@ export async function GET(request: NextRequest) {
 
   const analysis: PortalHealthAnalysis = {
     id: `pha_${portalId}_${Date.now()}`,
-    organizationId: 'org_enterprise_01',
-    connectionId: DEMO_HUBSPOT_CONNECTION.id,
+    organizationId: conn?.organizationId || 'org_enterprise_01',
+    connectionId: conn?.id || `conn_hs_${portalId}`,
     portalId,
     analyzedAt: auditReport.retrievedAt,
     crmOverview: {

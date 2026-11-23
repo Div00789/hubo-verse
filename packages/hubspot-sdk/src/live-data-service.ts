@@ -1,3 +1,8 @@
+import {
+  getPersistentConnectionByPortalId,
+  savePersistentConnection,
+} from '@huboverse/database';
+import { decryptToken } from './encryption';
 import type {
   CrmDataResult,
   StructuredMetricResponse,
@@ -6,25 +11,75 @@ import type {
   PortalAuditFinding,
   VerifiedStatisticItem,
   PortalAuditActionItem,
+  UnifiedPortalMetrics,
 } from '@huboverse/types';
 
-// In-memory token store for transparent automatic refresh across requests
-let globalAccessToken: string | null = null;
-let globalTokenExpiresAt: number = 0;
+// Per-portal token store for multi-account automatic token refresh across requests
+interface PortalTokenRecord {
+  accessToken: string;
+  expiresAt: number;
+  refreshToken?: string;
+}
+
+const portalTokenMap = new Map<string, PortalTokenRecord>();
+
+export function registerPortalRefreshToken(
+  portalId: string,
+  refreshToken: string,
+  accessToken?: string,
+  expiresIn?: number
+): void {
+  portalTokenMap.set(portalId, {
+    accessToken: accessToken || '',
+    expiresAt: expiresIn ? Date.now() + expiresIn * 1000 : 0,
+    refreshToken,
+  });
+}
+
+export function unregisterPortalToken(portalId: string): void {
+  portalTokenMap.delete(portalId);
+}
 
 export class HubSpotLiveDataService {
   private portalId: string;
 
   constructor(portalId = '46100478') {
-    this.portalId = portalId;
+    this.portalId = String(portalId);
   }
 
   /**
-   * Refreshes the OAuth access token using the persistent refresh token.
+   * Refreshes the OAuth access token for this specific portal.
    */
   public async refreshAccessToken(): Promise<string | null> {
-    const refreshToken =
-      process.env.HUBSPOT_REFRESH_TOKEN || 'na1-e2c7-b237-4dbd-950d-c3b0e4909cbf';
+    const cached = portalTokenMap.get(this.portalId);
+    let refreshToken = cached?.refreshToken;
+
+    // Check persistent storage first
+    const persistentConn = getPersistentConnectionByPortalId(this.portalId);
+    if (!refreshToken && persistentConn) {
+      if (persistentConn.refreshToken) {
+        refreshToken = persistentConn.refreshToken;
+      } else if (persistentConn.encryptedRefreshToken) {
+        const encryptionKey =
+          process.env.HUBSPOT_TOKEN_ENCRYPTION_KEY ||
+          '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        try {
+          const parsed = JSON.parse(persistentConn.encryptedRefreshToken);
+          refreshToken = decryptToken(parsed, encryptionKey);
+        } catch {
+          // If already plain text
+          refreshToken = persistentConn.encryptedRefreshToken;
+        }
+      }
+    }
+
+    // Fallback to environment variable ONLY if this portal matches default portal ID
+    const defaultPortal = process.env.HUBSPOT_DEFAULT_PORTAL_ID || '46100478';
+    if (!refreshToken && (this.portalId === defaultPortal || this.portalId === '46100478')) {
+      refreshToken =
+        process.env.HUBSPOT_REFRESH_TOKEN || 'na1-e2c7-b237-4dbd-950d-c3b0e4909cbf';
+    }
+
     const clientId =
       process.env.HUBSPOT_CLIENT_ID ||
       process.env.HUBSPOT_MCP_CLIENT_ID ||
@@ -34,7 +89,11 @@ export class HubSpotLiveDataService {
       process.env.HUBSPOT_MCP_CLIENT_SECRET ||
       'f439ecb9-c429-440a-810d-8b84d31159f2';
 
-    if (!refreshToken) return null;
+    if (!refreshToken) {
+      if (cached?.accessToken) return cached.accessToken;
+      if (persistentConn?.accessToken) return persistentConn.accessToken;
+      return null;
+    }
 
     try {
       const params = new URLSearchParams({
@@ -52,9 +111,27 @@ export class HubSpotLiveDataService {
 
       if (res.ok) {
         const data = await res.json();
-        globalAccessToken = data.access_token;
-        globalTokenExpiresAt = Date.now() + (data.expires_in || 1800) * 1000;
-        process.env.HUBSPOT_ACCESS_TOKEN = data.access_token;
+        const expiresAt = Date.now() + (data.expires_in || 1800) * 1000;
+        portalTokenMap.set(this.portalId, {
+          accessToken: data.access_token,
+          expiresAt,
+          refreshToken,
+        });
+
+        // Persist token in storage
+        if (persistentConn) {
+          persistentConn.accessToken = data.access_token;
+          persistentConn.tokenExpiresAt = expiresAt;
+          persistentConn.lastSuccessfulCheck = new Date().toLocaleTimeString();
+          persistentConn.status = 'CONNECTED';
+          persistentConn.connectionStatus = 'CONNECTED';
+          savePersistentConnection(persistentConn);
+        }
+
+        if (this.portalId === defaultPortal || this.portalId === '46100478') {
+          process.env.HUBSPOT_ACCESS_TOKEN = data.access_token;
+        }
+
         return data.access_token;
       }
     } catch {
@@ -65,12 +142,22 @@ export class HubSpotLiveDataService {
   }
 
   /**
-   * Retrieves an active access token, performing automatic token refresh if expired.
+   * Retrieves an active access token for this specific portal, performing automatic refresh if needed.
    */
   public async getValidAccessToken(): Promise<string | null> {
-    // If token is cached and valid for at least 2 more minutes, use it
-    if (globalAccessToken && Date.now() < globalTokenExpiresAt - 120000) {
-      return globalAccessToken;
+    // Check persistent connection cache
+    const persistentConn = getPersistentConnectionByPortalId(this.portalId);
+    if (
+      persistentConn?.accessToken &&
+      persistentConn.tokenExpiresAt &&
+      Date.now() < persistentConn.tokenExpiresAt - 120000
+    ) {
+      return persistentConn.accessToken;
+    }
+
+    const cached = portalTokenMap.get(this.portalId);
+    if (cached && cached.accessToken && Date.now() < cached.expiresAt - 120000) {
+      return cached.accessToken;
     }
 
     // Attempt token refresh via refresh_token
@@ -79,7 +166,168 @@ export class HubSpotLiveDataService {
       return refreshed;
     }
 
-    return process.env.HUBSPOT_ACCESS_TOKEN || null;
+    const defaultPortal = process.env.HUBSPOT_DEFAULT_PORTAL_ID || '46100478';
+    if (this.portalId === defaultPortal || this.portalId === '46100478') {
+      return process.env.HUBSPOT_ACCESS_TOKEN || null;
+    }
+
+    return persistentConn?.accessToken || cached?.accessToken || null;
+  }
+
+  /**
+   * Validates portal identity and verifies that the access token belongs to this exact portal ID.
+   * Throws an error on token mismatch to prevent cross-portal data leakage.
+   */
+  public async validatePortalIdentity(): Promise<{
+    hubId: number;
+    hubName?: string;
+    user?: string;
+    scopes: string[];
+  }> {
+    const token = await this.getValidAccessToken();
+    if (!token) {
+      throw new Error(`NO_TOKEN: No valid HubSpot access token found for portal #${this.portalId}. Re-authentication required.`);
+    }
+
+    const res = await this.fetchApi<any>(`/oauth/v1/access-tokens/${token}`);
+    if (res.status !== 200 || !res.data) {
+      throw new Error(`TOKEN_INVALID: Failed to inspect access token for portal #${this.portalId}: ${res.error || 'Unknown error'}`);
+    }
+
+    const tokenHubId = String(res.data.hub_id);
+    if (tokenHubId !== String(this.portalId)) {
+      throw new Error(
+        `PORTAL_IDENTITY_MISMATCH: Security violation: Current token belongs to portal #${tokenHubId}, but requested portal is #${this.portalId}. Cross-portal data access blocked.`
+      );
+    }
+
+    return {
+      hubId: res.data.hub_id,
+      hubName: res.data.hub_name,
+      user: res.data.user,
+      scopes: res.data.scopes || [],
+    };
+  }
+
+  /**
+   * Unified Portal Metrics Engine: Returns aggregated, verified live metrics
+   * across Contacts, Companies, Deals, Owners, Workflows, and Tickets.
+   */
+  public async getPortalMetrics(): Promise<UnifiedPortalMetrics> {
+    const now = new Date().toISOString();
+    let portalName = 'HubSpot Portal';
+    let userEmail: string | undefined = undefined;
+
+    try {
+      const identity = await this.validatePortalIdentity();
+      portalName = identity.hubName || portalName;
+      userEmail = identity.user;
+    } catch {
+      const conn = getPersistentConnectionByPortalId(this.portalId);
+      if (conn) {
+        portalName = conn.portalName || conn.accountName || portalName;
+        userEmail = conn.connectedUser;
+      }
+    }
+
+    // Execute queries in parallel for efficiency
+    const [
+      contactCount,
+      unassignedContacts,
+      companyCount,
+      dealCount,
+      pipelineValue,
+      owners,
+      workflows,
+      tickets,
+    ] = await Promise.all([
+      this.getContactCount().catch(() => null),
+      this.getUnassignedContactsCount().catch(() => null),
+      this.getCompanyCount().catch(() => null),
+      this.getDealCount().catch(() => null),
+      this.getDealPipelineValue().catch(() => null),
+      this.getOwnerCount().catch(() => null),
+      this.getWorkflowInventory().catch(() => null),
+      this.getTicketCount().catch(() => null),
+    ]);
+
+    const workflowBreakdown = (workflows as any)?.breakdown || {};
+    const totalWorkflows =
+      workflows?.value !== null && workflows?.value !== undefined
+        ? Number(workflows.value)
+        : null;
+
+    return {
+      portalId: this.portalId,
+      portalName,
+      userEmail,
+      contacts: {
+        total:
+          contactCount?.value !== null && contactCount?.value !== undefined
+            ? Number(contactCount.value)
+            : null,
+        unassigned:
+          unassignedContacts?.value !== null && unassignedContacts?.value !== undefined
+            ? Number(unassignedContacts.value)
+            : null,
+        status: contactCount?.status || 'unavailable',
+        notes: contactCount?.summary,
+      },
+      companies: {
+        total:
+          companyCount?.value !== null && companyCount?.value !== undefined
+            ? Number(companyCount.value)
+            : null,
+        status: companyCount?.status || 'unavailable',
+      },
+      deals: {
+        total:
+          dealCount?.value !== null && dealCount?.value !== undefined
+            ? Number(dealCount.value)
+            : null,
+        openCount: (dealCount as any)?.openDeals ?? null,
+        totalPipelineValue:
+          pipelineValue?.value !== null && pipelineValue?.value !== undefined
+            ? (typeof pipelineValue.value === 'number'
+                ? pipelineValue.value
+                : Number((pipelineValue.value as any)?.totalPipelineValue || 0))
+            : null,
+        formattedPipelineValue:
+          pipelineValue?.value !== null && pipelineValue?.value !== undefined
+            ? `$${(typeof pipelineValue.value === 'number'
+                ? pipelineValue.value
+                : Number((pipelineValue.value as any)?.totalPipelineValue || 0)).toLocaleString()}`
+            : '$0',
+        status: dealCount?.status || 'unavailable',
+      },
+      owners: {
+        total:
+          owners?.value !== null && owners?.value !== undefined
+            ? Number(owners.value)
+            : null,
+        status: owners?.status || 'unavailable',
+        list: (owners?.breakdown || []).map((b: any) => ({
+          id: String(b.count || b.id || ''),
+          name: b.label || '',
+          email: b.percentage || b.email || '',
+        })),
+      },
+      workflows: {
+        total: totalWorkflows,
+        active: workflowBreakdown?.activeCount ?? null,
+        inactive: workflowBreakdown?.inactiveCount ?? null,
+        status: workflows?.status || 'unavailable',
+        reason: workflows?.limitations?.[0] || workflows?.summary,
+      },
+      tickets: {
+        total:
+          tickets?.value !== null && tickets?.value !== undefined
+            ? Number(tickets.value)
+            : null,
+        status: tickets?.status || 'unavailable',
+      },
+      lastSyncedAt: now,
+    };
   }
 
   /**
@@ -146,11 +394,13 @@ export class HubSpotLiveDataService {
     const now = new Date().toISOString();
     const token = await this.getValidAccessToken();
 
+    const conn = getPersistentConnectionByPortalId(this.portalId);
+
     if (!token) {
       return {
         portalId: this.portalId,
-        portalName: 'HubSpot Demo Account',
-        userEmail: 'div@huboexperts.com',
+        portalName: conn?.portalName || conn?.accountName || `HubSpot Portal #${this.portalId}`,
+        userEmail: conn?.connectedUser || 'Not Connected',
         currency: 'USD',
         timeZone: 'UTC',
         status: 'unavailable',
@@ -161,10 +411,22 @@ export class HubSpotLiveDataService {
     const details = await this.fetchApi('/account-info/v3/details');
     const tokenInfo = await this.fetchApi(`/oauth/v1/access-tokens/${token}`);
 
+    const resolvedPortalName =
+      (tokenInfo.data as any)?.hub_name ||
+      details.data?.portalName ||
+      conn?.portalName ||
+      conn?.accountName ||
+      `HubSpot Portal #${this.portalId}`;
+
+    const resolvedUserEmail =
+      tokenInfo.data?.user ||
+      conn?.connectedUser ||
+      'Authorized User';
+
     return {
       portalId: String(tokenInfo.data?.hub_id || details.data?.portalId || this.portalId),
-      portalName: 'HubSpot Demo Account',
-      userEmail: tokenInfo.data?.user || 'div@huboexperts.com',
+      portalName: resolvedPortalName,
+      userEmail: resolvedUserEmail,
       currency: details.data?.currency || 'USD',
       timeZone: details.data?.timeZone || 'UTC',
       status: 'verified',

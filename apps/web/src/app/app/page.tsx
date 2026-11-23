@@ -18,6 +18,47 @@ export default function AppHomePage() {
   const [buildInitialPrompt, setBuildInitialPrompt] = useState<string | undefined>();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // Dynamic Active Portal State across the workspace
+  const [activePortalId, setActivePortalId] = useState<string>('46100478');
+  const [activePortalName, setActivePortalName] = useState<string>('HubSpot Demo Account');
+  const [isPortalConnected, setIsPortalConnected] = useState<boolean>(true);
+
+  // Hydrate active portal from server & check URL search params on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as ActiveTab | null;
+      if (tabParam && ['home', 'anna', 'portals', 'academy', 'experts', 'projects', 'settings'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+
+    fetch('/api/hubspot/connections')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.activePortalId) {
+          setActivePortalId(data.activePortalId);
+        }
+        if (data.connections && data.connections.length > 0) {
+          const activeConn = data.connections.find(
+            (c: any) => c.portalId === data.activePortalId
+          ) || data.connections[0];
+          setActivePortalName(activeConn.portalName);
+          setIsPortalConnected(activeConn.status === 'CONNECTED');
+        } else {
+          setIsPortalConnected(false);
+          setActivePortalName('No Portal Connected');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleActivePortalChange = (newPortalId: string, newPortalName: string) => {
+    setActivePortalId(newPortalId);
+    setActivePortalName(newPortalName);
+    setIsPortalConnected(true);
+  };
+
   const getNavbarTitle = () => {
     switch (activeTab) {
       case 'home':
@@ -97,8 +138,9 @@ export default function AppHomePage() {
         }}
         annaMode={annaMode}
         setAnnaMode={setAnnaMode}
-        portalName="HubSpot Demo Account"
-        isPortalConnected={true}
+        portalName={activePortalName}
+        portalId={activePortalId}
+        isPortalConnected={isPortalConnected}
         isOpenOnMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
@@ -119,22 +161,35 @@ export default function AppHomePage() {
           }`}
         >
           {activeTab === 'home' && (
-            <DashboardOverview onNavigate={handleNavigateFromHome} />
+            <DashboardOverview
+              onNavigate={handleNavigateFromHome}
+              portalId={activePortalId}
+              portalName={activePortalName}
+              isPortalConnected={isPortalConnected}
+            />
           )}
 
           {activeTab === 'anna' && annaMode === 'CHAT' && (
-            <AnnaChatInterface onSwitchToBuildMode={handleSwitchToBuild} />
+            <AnnaChatInterface
+              onSwitchToBuildMode={handleSwitchToBuild}
+              portalId={activePortalId}
+              portalName={activePortalName}
+            />
           )}
 
           {activeTab === 'anna' && annaMode === 'BUILD' && (
             <AnnaBuildInterface
               initialPrompt={buildInitialPrompt}
               onSwitchToChatMode={() => setAnnaMode('CHAT')}
+              portalId={activePortalId}
+              portalName={activePortalName}
             />
           )}
 
           {activeTab === 'portals' && (
             <PortalStatusCard
+              activePortalId={activePortalId}
+              onActivePortalChange={handleActivePortalChange}
               onSelectPortalForAnna={(_portalId) => {
                 setActiveTab('anna');
                 setAnnaMode('CHAT');

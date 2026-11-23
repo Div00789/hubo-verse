@@ -288,8 +288,10 @@ ${auditReport.actionPlan.map((a) => `1. ${a.action} (${a.estimatedComplexity} co
               </span>
             </div>
             <p className="text-xs text-gray-300 leading-relaxed">
-              HuboVerse verified <strong>50 active contacts</strong>, <strong>3 companies</strong>, <strong>10 deals ($5,105)</strong>, and <strong>6 CRM owners</strong> in HubSpot portal <strong>#{portalId}</strong>.
-              Critical data quality observations include <strong>{s.unassignedContacts} contacts (84%)</strong> without assigned owners, and <strong>3 deals</strong> missing monetary amounts.
+              HuboVerse verified <strong>{typeof s.totalContacts === 'number' ? s.totalContacts : '—'} active contacts</strong>, <strong>{typeof s.totalCompanies === 'number' ? s.totalCompanies : '—'} companies</strong>, <strong>{typeof s.totalDeals === 'number' ? s.totalDeals : '—'} deals ({(s as any).pipelineValue || (s as any).totalPipelineValue || '$0'})</strong>, and <strong>{typeof s.totalOwners === 'number' ? s.totalOwners : '—'} CRM owners</strong> in HubSpot portal <strong>#{portalId}</strong>.
+              {typeof s.unassignedContacts === 'number' ? (
+                <> Critical data quality observations include <strong>{s.unassignedContacts} contacts</strong> without assigned owners.</>
+              ) : null}
             </p>
           </div>
         </div>

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { encryptToken, HubSpotMcpClient } from '@huboverse/hubspot-sdk';
+import {
+  encryptToken,
+  HubSpotMcpClient,
+  registerPortalRefreshToken,
+} from '@huboverse/hubspot-sdk';
 import {
   savePortalSchemaRegistry,
+  saveHubSpotConnection,
+  setActiveRuntimePortalId,
   DEMO_PORTAL_SCHEMA_REGISTRY,
 } from '@huboverse/database';
 
@@ -53,9 +59,10 @@ export async function GET(request: NextRequest) {
   const clientSecret =
     process.env.HUBSPOT_MCP_CLIENT_SECRET || process.env.HUBSPOT_CLIENT_SECRET;
 
-  const redirectUri =
-    process.env.HUBSPOT_MCP_REDIRECT_URI ||
-    `${origin}/api/integrations/hubspot/mcp/callback`;
+  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+  const redirectUri = isLocalhost
+    ? `${origin}/api/integrations/hubspot/mcp/callback`
+    : process.env.HUBSPOT_MCP_REDIRECT_URI || `${origin}/api/integrations/hubspot/mcp/callback`;
 
   try {
     // 3. Exchange Authorization Code + PKCE code_verifier for Tokens
@@ -84,8 +91,9 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenRes.json();
 
-    // 4. Discover Connected Portal ID and User
+    // 4. Discover Connected Portal ID and User Identity
     let hubId = '46100478';
+    let portalName = `HubSpot Account #${hubId}`;
     let userEmail = 'div@huboexperts.com';
     let scopes: string[] = [];
 
@@ -97,7 +105,23 @@ export async function GET(request: NextRequest) {
       hubId = String(info.hub_id || hubId);
       userEmail = info.user || userEmail;
       scopes = info.scopes || [];
+      if (info.hub_name) {
+        portalName = info.hub_name;
+      }
     }
+
+    // Try retrieving official account name from account details
+    try {
+      const acctRes = await fetch('https://api.hubapi.com/account-info/v3/details', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (acctRes.ok) {
+        const acct = await acctRes.json();
+        if (acct.uiDomain && !portalName) {
+          portalName = `HubSpot Portal #${hubId}`;
+        }
+      }
+    } catch {}
 
     // 5. Test Remote MCP Server Connection with the new Bearer Token
     const mcpClient = new HubSpotMcpClient(
@@ -114,15 +138,51 @@ export async function GET(request: NextRequest) {
     encryptToken(tokens.access_token, encryptionKey);
     if (tokens.refresh_token) {
       encryptToken(tokens.refresh_token, encryptionKey);
+      registerPortalRefreshToken(
+        hubId,
+        tokens.refresh_token,
+        tokens.access_token,
+        tokens.expires_in
+      );
     }
 
     // 7. Ground Portal Schema Registry
     savePortalSchemaRegistry(hubId, {
       ...DEMO_PORTAL_SCHEMA_REGISTRY,
       portalId: hubId,
-      portalName: `HubSpot Demo Account (${hubId})`,
+      portalName,
       refreshedAt: new Date().toISOString(),
     });
+
+    // 8. Save Connected Account in Dynamic Store
+    saveHubSpotConnection({
+      id: `conn_hs_${hubId}`,
+      organizationId: 'org_enterprise_01',
+      portalId: hubId,
+      portalName,
+      hubspotDomain: `app.hubspot.com/reports-dashboard/${hubId}`,
+      installedScopes: scopes,
+      hubs: {
+        Marketing: 'Professional',
+        Sales: 'Enterprise',
+        Service: 'Professional',
+        Operations: 'Starter',
+        CMS: 'Starter',
+      },
+      status: 'CONNECTED',
+      connectedByUserId: userEmail,
+      connectedUser: userEmail,
+      connectedAt: new Date().toISOString(),
+      lastSyncedAt: new Date().toISOString(),
+      lastSuccessfulCheck: new Date().toLocaleTimeString(),
+      authMethod: 'OAUTH',
+      isLiveConnected: true,
+      refreshToken: tokens.refresh_token,
+      accessToken: tokens.access_token,
+      tokenExpiresAt: Date.now() + (tokens.expires_in || 1800) * 1000,
+    });
+
+    setActiveRuntimePortalId(hubId);
 
     const response = NextResponse.redirect(
       `${origin}/app?tab=portals&connected=true&portalId=${hubId}&mcp=true`
@@ -132,7 +192,7 @@ export async function GET(request: NextRequest) {
     response.cookies.delete('hubspot_mcp_state');
     response.cookies.delete('hubspot_mcp_verifier');
 
-    // Store active portal reference
+    // Store active portal reference in cookie
     response.cookies.set('active_hubspot_portal', hubId, {
       path: '/',
       sameSite: 'lax',
@@ -149,3 +209,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

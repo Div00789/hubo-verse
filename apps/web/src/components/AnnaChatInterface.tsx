@@ -19,6 +19,8 @@ import { runAnnaChatStep } from '@huboverse/ai-agent';
 
 interface AnnaChatInterfaceProps {
   onSwitchToBuildMode: (suggestedPrompt?: string) => void;
+  portalId?: string;
+  portalName?: string;
 }
 
 /**
@@ -170,7 +172,13 @@ const FormattedMessageContent: React.FC<{ content: string }> = ({ content }) => 
   );
 };
 
-export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchToBuildMode }) => {
+export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({
+  onSwitchToBuildMode,
+  portalId,
+  portalName,
+}) => {
+  const activePortalId = portalId || '46100478';
+  const activePortalName = portalName || 'HubSpot Connected Account';
   const [messages, setMessages] = useState<AnnaChatMessage[]>(INITIAL_ANNA_MESSAGES);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -212,7 +220,7 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
         body: JSON.stringify({
           query: text,
           conversationId: 'conv_demo_01',
-          portalId: '46100478',
+          portalId: activePortalId,
         }),
       });
 
@@ -226,7 +234,7 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
           userQuery: text,
           organizationId: 'org_enterprise_01',
           portalContext: {
-            portalId: '46100478',
+            portalId: activePortalId,
             hubs: DEMO_HUBSPOT_CONNECTION.hubs,
           },
           retrievedCitations: [],
@@ -248,9 +256,9 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
           {
             id: `cit_${Date.now()}`,
             sourceType: 'PORTAL_SCHEMA',
-            title: `Live CRM Data: Portal #46100478`,
+            title: `Live CRM Data: Portal #${activePortalId}`,
             snippet: result.dataResult?.summary || 'Authorised HubSpot CRM API response.',
-            url: `https://app.hubspot.com/contacts/46100478`,
+            url: `https://app.hubspot.com/contacts/${activePortalId}`,
           },
         ],
         suggestedPrompts: result.suggestedPrompts,
@@ -340,7 +348,7 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({ onSwitchTo
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                     <span className="text-gray-300 font-medium">Live CRM Source:</span>
-                    <span className="truncate text-gray-400">HubSpot Portal #46100478</span>
+                    <span className="truncate text-gray-400">HubSpot Portal #{activePortalId} ({activePortalName})</span>
                   </div>
                   {msg.citations[0]?.url && (
                     <a

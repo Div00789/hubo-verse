@@ -11,10 +11,13 @@ export async function GET(request: NextRequest) {
     process.env.HUBSPOT_CLIENT_ID ||
     '9e468bc7-5fce-4556-b0bb-bbbeedf1b51e';
 
+  const origin = request.nextUrl.origin;
+  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+
   // Construct Redirect URI matching registered endpoint
-  const redirectUri =
-    process.env.HUBSPOT_MCP_REDIRECT_URI ||
-    `${request.nextUrl.origin}/api/integrations/hubspot/mcp/callback`;
+  const redirectUri = isLocalhost
+    ? `${origin}/api/integrations/hubspot/mcp/callback`
+    : process.env.HUBSPOT_MCP_REDIRECT_URI || `${origin}/api/integrations/hubspot/mcp/callback`;
 
   // Generate cryptographically secure CSRF state
   const state = `hvmcp_${crypto.randomBytes(16).toString('hex')}`;

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { HubSpotOAuthManager, encryptToken } from '@huboverse/hubspot-sdk';
+import {
+  HubSpotOAuthManager,
+  encryptToken,
+  registerPortalRefreshToken,
+} from '@huboverse/hubspot-sdk';
 import {
   savePortalSchemaRegistry,
+  saveHubSpotConnection,
+  setActiveRuntimePortalId,
   DEMO_PORTAL_SCHEMA_REGISTRY,
 } from '@huboverse/database';
 
@@ -41,9 +47,10 @@ export async function GET(request: NextRequest) {
 
   const clientId = process.env.HUBSPOT_CLIENT_ID;
   const clientSecret = process.env.HUBSPOT_CLIENT_SECRET;
-  const redirectUri =
-    process.env.HUBSPOT_REDIRECT_URI ||
-    `${origin}/api/auth/hubspot/callback`;
+  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+  const redirectUri = isLocalhost
+    ? `${origin}/api/auth/hubspot/callback`
+    : process.env.HUBSPOT_REDIRECT_URI || `${origin}/api/auth/hubspot/callback`;
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
@@ -57,17 +64,24 @@ export async function GET(request: NextRequest) {
     const tokenInfo = await oauthManager.verifyTokenInfo(tokens.access_token);
 
     const portalId = String(tokenInfo.hub_id);
-    const portalName = `HubSpot Portal #${tokenInfo.hub_id}`;
+    const portalName = (tokenInfo as any).hub_name || `HubSpot Account #${tokenInfo.hub_id}`;
+    const userEmail = tokenInfo.user || 'Authorized User';
 
     // Encrypt tokens using AES-256-GCM
     const encryptionKey =
       process.env.HUBSPOT_TOKEN_ENCRYPTION_KEY ||
       '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-    const encAccess = encryptToken(tokens.access_token, encryptionKey);
-    const encRefresh = tokens.refresh_token
-      ? encryptToken(tokens.refresh_token, encryptionKey)
-      : null;
+    encryptToken(tokens.access_token, encryptionKey);
+    if (tokens.refresh_token) {
+      encryptToken(tokens.refresh_token, encryptionKey);
+      registerPortalRefreshToken(
+        portalId,
+        tokens.refresh_token,
+        tokens.access_token,
+        tokens.expires_in
+      );
+    }
 
     // Cache / ground schema registry for the newly connected portal
     savePortalSchemaRegistry(portalId, {
@@ -77,6 +91,36 @@ export async function GET(request: NextRequest) {
       refreshedAt: new Date().toISOString(),
     });
 
+    // Save Connected Account in Dynamic Store
+    saveHubSpotConnection({
+      id: `conn_hs_${portalId}`,
+      organizationId: 'org_enterprise_01',
+      portalId,
+      portalName,
+      hubspotDomain: `app.hubspot.com/reports-dashboard/${portalId}`,
+      installedScopes: tokenInfo.scopes || [],
+      hubs: {
+        Marketing: 'Professional',
+        Sales: 'Enterprise',
+        Service: 'Professional',
+        Operations: 'Starter',
+        CMS: 'Starter',
+      },
+      status: 'CONNECTED',
+      connectedByUserId: userEmail,
+      connectedUser: userEmail,
+      connectedAt: new Date().toISOString(),
+      lastSyncedAt: new Date().toISOString(),
+      lastSuccessfulCheck: new Date().toLocaleTimeString(),
+      authMethod: 'OAUTH',
+      isLiveConnected: true,
+      refreshToken: tokens.refresh_token,
+      accessToken: tokens.access_token,
+      tokenExpiresAt: Date.now() + (tokens.expires_in || 1800) * 1000,
+    });
+
+    setActiveRuntimePortalId(portalId);
+
     const response = NextResponse.redirect(
       `${origin}/app?tab=portals&connected=true&portalId=${portalId}`
     );
@@ -84,7 +128,7 @@ export async function GET(request: NextRequest) {
     // Clear the state cookie
     response.cookies.delete('hubspot_oauth_state');
 
-    // Optionally set connected portal cookie for quick client hydration
+    // Set connected portal cookie for quick client hydration
     response.cookies.set('active_hubspot_portal', portalId, {
       path: '/',
       sameSite: 'lax',

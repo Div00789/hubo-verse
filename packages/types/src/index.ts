@@ -73,6 +73,19 @@ export interface HubSpotPortalConnection {
   connectedByUserId: string;
   connectedAt: string;
   lastSyncedAt?: string;
+  authMethod?: 'OAUTH' | 'MCP' | 'PAT';
+  encryptedAccessToken?: string;
+  encryptedRefreshToken?: string | null;
+  refreshToken?: string;
+  accessToken?: string;
+  tokenExpiresAt?: number | null;
+  connectedUser?: string;
+  lastSuccessfulCheck?: string;
+  isLiveConnected?: boolean;
+  verifiedPropertiesCount?: number;
+  verifiedPipelinesCount?: number;
+  verifiedOwnersCount?: number;
+  verifiedWorkflowsCount?: number;
 }
 
 export type ActionRiskLevel = 'READ_ONLY' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -656,4 +669,45 @@ export interface PortalHealthAnalysis {
   };
   recommendations: PortalHealthRecommendation[];
 }
+
+export interface UnifiedPortalMetrics {
+  portalId: string;
+  portalName: string;
+  userEmail?: string;
+  contacts: {
+    total: number | null;
+    unassigned: number | null;
+    status: MetricVerificationStatus;
+    notes?: string;
+  };
+  companies: {
+    total: number | null;
+    status: MetricVerificationStatus;
+  };
+  deals: {
+    total: number | null;
+    openCount: number | null;
+    totalPipelineValue: number | null;
+    formattedPipelineValue: string;
+    status: MetricVerificationStatus;
+  };
+  owners: {
+    total: number | null;
+    status: MetricVerificationStatus;
+    list?: Array<{ id: string; name: string; email: string }>;
+  };
+  workflows: {
+    total: number | null;
+    active: number | null;
+    inactive: number | null;
+    status: MetricVerificationStatus;
+    reason?: string;
+  };
+  tickets: {
+    total: number | null;
+    status: MetricVerificationStatus;
+  };
+  lastSyncedAt: string;
+}
+
 

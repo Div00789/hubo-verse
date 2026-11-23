@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HubSpotMcpClient } from '@huboverse/hubspot-sdk';
-import { DEMO_HUBSPOT_CONNECTION } from '@huboverse/database';
+import { getHubSpotConnectionByPortalId, getActiveRuntimePortalId } from '@huboverse/database';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const portalId =
     request.cookies.get('active_hubspot_portal')?.value ||
-    DEMO_HUBSPOT_CONNECTION.portalId;
+    getActiveRuntimePortalId() ||
+    process.env.HUBSPOT_DEFAULT_PORTAL_ID ||
+    '46100478';
+
+  const connection = getHubSpotConnectionByPortalId(portalId);
 
   const mcpServerUrl =
     process.env.HUBSPOT_MCP_SERVER_URL || 'https://mcp.hubspot.com';
@@ -17,7 +21,9 @@ export async function GET(request: NextRequest) {
   );
 
   const accessToken =
-    process.env.HUBSPOT_ACCESS_TOKEN || 'demo_mcp_access_token';
+    connection?.accessToken ||
+    process.env.HUBSPOT_ACCESS_TOKEN ||
+    'demo_mcp_access_token';
 
   const mcpClient = new HubSpotMcpClient(accessToken, mcpServerUrl);
   const health = await mcpClient.checkHealth();
@@ -36,7 +42,7 @@ export async function GET(request: NextRequest) {
       process.env.HUBSPOT_MCP_REDIRECT_URI ||
       'https://hubo-verse.vercel.app/api/integrations/hubspot/mcp/callback',
     activePortalId: portalId,
-    activePortalName: portalId === '46100478' ? 'HubSpot Demo Account' : DEMO_HUBSPOT_CONNECTION.portalName,
+    activePortalName: connection?.portalName || `HubSpot Portal #${portalId}`,
     health,
     availableToolsCount: tools.length,
     tools: tools.map((t) => ({

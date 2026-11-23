@@ -534,3 +534,277 @@ export function getWorkflowDeployments(portalId: string): WorkflowDeploymentReco
 export function recordWorkflowDeployment(record: WorkflowDeploymentRecord): void {
   runtimeDeployments.unshift(record);
 }
+
+// =========================================================================
+// 9. DYNAMIC MULTI-PORTAL CONNECTION REGISTRY (PERSISTENT MULTI-TENANT STORE)
+// =========================================================================
+
+export interface PersistentConnectionRecord extends HubSpotPortalConnection {
+  workspaceId?: string;
+  accountName?: string;
+  encryptedAccessToken?: string;
+  encryptedRefreshToken?: string | null;
+  refreshToken?: string;
+  accessToken?: string;
+  tokenExpiresAt?: number | null;
+  connectionStatus?: 'CONNECTED' | 'NEEDS_REAUTH' | 'DISCONNECTED';
+  lastVerifiedAt?: string;
+  authMethod?: 'OAUTH' | 'MCP' | 'PAT';
+}
+
+interface StoreData {
+  activePortalId: string | null;
+  connections: Record<string, PersistentConnectionRecord>;
+}
+
+function getFs(): any {
+  if (typeof window !== 'undefined') return null;
+  try {
+    return eval('require')('fs');
+  } catch {
+    return null;
+  }
+}
+
+function getPath(): any {
+  if (typeof window !== 'undefined') return null;
+  try {
+    return eval('require')('path');
+  } catch {
+    return null;
+  }
+}
+
+function getStorageFilePath(): string {
+  const nodePath = getPath();
+  const rootPath = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
+  return nodePath ? nodePath.join(rootPath, '.huboverse_connections.json') : '.huboverse_connections.json';
+}
+
+let memoryStore: StoreData | null = null;
+
+function loadStoreFromDisk(): StoreData {
+  const nodeFs = getFs();
+  const filePath = getStorageFilePath();
+  try {
+    if (nodeFs && nodeFs.existsSync(filePath)) {
+      const content = nodeFs.readFileSync(filePath, 'utf8');
+      const parsed = JSON.parse(content);
+      if (parsed && typeof parsed.connections === 'object') {
+        memoryStore = parsed;
+        return parsed;
+      }
+    }
+  } catch {
+    // Fallback if read fails
+  }
+
+  const defaultPortalId = process.env.HUBSPOT_DEFAULT_PORTAL_ID || '46100478';
+  const hasRefreshToken = Boolean(process.env.HUBSPOT_REFRESH_TOKEN);
+
+  const initialConnections: Record<string, PersistentConnectionRecord> = {};
+
+  if (hasRefreshToken || process.env.HUBSPOT_ACCESS_TOKEN) {
+    initialConnections[defaultPortalId] = {
+      id: `conn_hs_${defaultPortalId}`,
+      organizationId: 'org_enterprise_01',
+      workspaceId: 'org_enterprise_01',
+      portalId: defaultPortalId,
+      portalName: process.env.HUBSPOT_PORTAL_NAME || 'HubSpot Demo Account',
+      accountName: process.env.HUBSPOT_PORTAL_NAME || 'HubSpot Demo Account',
+      hubspotDomain: `app.hubspot.com/reports-dashboard/${defaultPortalId}`,
+      installedScopes: [
+        'crm.objects.contacts.read',
+        'crm.objects.contacts.write',
+        'crm.schemas.contacts.read',
+        'crm.schemas.contacts.write',
+        'crm.objects.deals.read',
+        'crm.objects.deals.write',
+        'crm.schemas.deals.read',
+        'crm.objects.companies.read',
+        'crm.objects.owners.read',
+        'automation',
+        'crm.lists.read',
+        'crm.lists.write',
+      ],
+      hubs: {
+        Marketing: 'Professional',
+        Sales: 'Enterprise',
+        Service: 'Professional',
+        Operations: 'Starter',
+        CMS: 'Starter',
+      },
+      status: 'CONNECTED',
+      connectionStatus: 'CONNECTED',
+      connectedByUserId: process.env.HUBSPOT_AUTHORIZED_USER || 'div@huboexperts.com',
+      connectedUser: process.env.HUBSPOT_AUTHORIZED_USER || 'div@huboexperts.com',
+      connectedAt: '2026-02-01T12:00:00Z',
+      lastSyncedAt: new Date().toISOString(),
+      lastSuccessfulCheck: new Date().toLocaleTimeString(),
+      lastVerifiedAt: new Date().toISOString(),
+      authMethod: 'OAUTH',
+      isLiveConnected: true,
+      refreshToken: process.env.HUBSPOT_REFRESH_TOKEN || 'na1-e2c7-b237-4dbd-950d-c3b0e4909cbf',
+      accessToken: process.env.HUBSPOT_ACCESS_TOKEN,
+    };
+  }
+
+  const initialData: StoreData = {
+    activePortalId: Object.keys(initialConnections)[0] || null,
+    connections: initialConnections,
+  };
+
+  memoryStore = initialData;
+  saveStoreToDisk(initialData);
+  return initialData;
+}
+
+function saveStoreToDisk(data: StoreData): void {
+  const nodeFs = getFs();
+  if (!nodeFs) return;
+  const filePath = getStorageFilePath();
+  try {
+    nodeFs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch {
+    // If write fails, memoryStore remains active
+  }
+}
+
+function getStore(): StoreData {
+  if (!memoryStore) {
+    return loadStoreFromDisk();
+  }
+  return memoryStore;
+}
+
+export function getAllPersistentConnections(): PersistentConnectionRecord[] {
+  const store = getStore();
+  return Object.values(store.connections);
+}
+
+export function getPersistentConnectionByPortalId(portalId: string): PersistentConnectionRecord | null {
+  const store = getStore();
+  const cleanId = String(portalId).trim();
+  return store.connections[cleanId] || null;
+}
+
+export function getPersistentConnectionById(connectionId: string): PersistentConnectionRecord | null {
+  const store = getStore();
+  const found = Object.values(store.connections).find((c) => c.id === connectionId);
+  return found || null;
+}
+
+export function savePersistentConnection(conn: PersistentConnectionRecord): PersistentConnectionRecord {
+  const store = getStore();
+  const portalId = String(conn.portalId).trim();
+
+  const record: PersistentConnectionRecord = {
+    ...conn,
+    portalId,
+    workspaceId: conn.workspaceId || conn.organizationId || 'org_enterprise_01',
+    accountName: conn.accountName || conn.portalName || `Portal #${portalId}`,
+    portalName: conn.portalName || conn.accountName || `Portal #${portalId}`,
+    connectionStatus: conn.connectionStatus || conn.status || 'CONNECTED',
+    status: conn.status || conn.connectionStatus || 'CONNECTED',
+    lastSyncedAt: new Date().toISOString(),
+    lastVerifiedAt: new Date().toISOString(),
+    lastSuccessfulCheck: new Date().toLocaleTimeString(),
+  };
+
+  store.connections[portalId] = record;
+
+  if (!store.activePortalId) {
+    store.activePortalId = portalId;
+  }
+
+  saveStoreToDisk(store);
+  return record;
+}
+
+export function deletePersistentConnection(portalId: string): boolean {
+  const store = getStore();
+  const cleanId = String(portalId).trim();
+
+  if (store.connections[cleanId]) {
+    delete store.connections[cleanId];
+
+    if (store.activePortalId === cleanId) {
+      const remaining = Object.keys(store.connections);
+      store.activePortalId = remaining.length > 0 ? remaining[0] : null;
+    }
+
+    saveStoreToDisk(store);
+    return true;
+  }
+
+  return false;
+}
+
+export function setConnectionStatus(
+  portalId: string,
+  status: 'CONNECTED' | 'NEEDS_REAUTH' | 'DISCONNECTED'
+): boolean {
+  const store = getStore();
+  const cleanId = String(portalId).trim();
+  const conn = store.connections[cleanId];
+
+  if (conn) {
+    conn.status = status;
+    conn.connectionStatus = status;
+    conn.lastSuccessfulCheck = new Date().toLocaleTimeString();
+    saveStoreToDisk(store);
+    return true;
+  }
+
+  return false;
+}
+
+export function getPersistentActivePortalId(): string | null {
+  const store = getStore();
+  return store.activePortalId;
+}
+
+export function setPersistentActivePortalId(portalId: string | null): void {
+  const store = getStore();
+  if (portalId && !store.connections[portalId]) {
+    throw new Error(`Cannot select Portal #${portalId}: Connection does not exist in persistent storage.`);
+  }
+  store.activePortalId = portalId;
+  saveStoreToDisk(store);
+}
+
+export type StoredHubSpotConnection = PersistentConnectionRecord;
+
+export function getAllHubSpotConnections(): StoredHubSpotConnection[] {
+  return getAllPersistentConnections();
+}
+
+export function getHubSpotConnectionByPortalId(portalId: string): StoredHubSpotConnection | undefined {
+  const conn = getPersistentConnectionByPortalId(portalId);
+  return conn || undefined;
+}
+
+export function saveHubSpotConnection(conn: StoredHubSpotConnection): void {
+  savePersistentConnection(conn);
+
+  if (!runtimeSchemaRegistry[conn.portalId]) {
+    runtimeSchemaRegistry[conn.portalId] = {
+      ...DEMO_PORTAL_SCHEMA_REGISTRY,
+      portalId: conn.portalId,
+      portalName: conn.portalName,
+      refreshedAt: new Date().toISOString(),
+    };
+  }
+}
+
+export function deleteHubSpotConnection(portalId: string): boolean {
+  return deletePersistentConnection(portalId);
+}
+
+export function getActiveRuntimePortalId(): string {
+  return getPersistentActivePortalId() || '';
+}
+
+export function setActiveRuntimePortalId(portalId: string): void {
+  setPersistentActivePortalId(portalId || null);
+}

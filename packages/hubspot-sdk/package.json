@@ -1,14 +1,15 @@
 {
   "name": "@huboverse/hubspot-sdk",
   "version": "1.0.0",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@huboverse/types": "workspace:*"
+    "@huboverse/types": "workspace:*",
+    "@huboverse/database": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

@@ -26,6 +26,7 @@ interface NavigationSidebarProps {
   annaMode: 'CHAT' | 'BUILD';
   setAnnaMode: (mode: 'CHAT' | 'BUILD') => void;
   portalName: string;
+  portalId?: string;
   isPortalConnected: boolean;
   isOpenOnMobile?: boolean;
   onCloseMobile?: () => void;
@@ -37,6 +38,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
   annaMode,
   setAnnaMode,
   portalName,
+  portalId,
   isPortalConnected,
   isOpenOnMobile = false,
   onCloseMobile,
@@ -232,7 +234,9 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
             </span>
           </div>
           <div className="text-xs text-white font-medium truncate mt-0.5">{portalName}</div>
-          <div className="text-[10px] text-gray-400 font-mono">Portal #46100478</div>
+          <div className="text-[10px] text-gray-400 font-mono">
+            {isPortalConnected ? `Portal #${portalId || '46100478'}` : 'No Portal Connected'}
+          </div>
         </div>
       </div>
     </aside>

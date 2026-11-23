@@ -32,6 +32,7 @@ import type {
   WorkflowBlueprint,
   WorkflowStep,
   WorkflowDeploymentRecord,
+  HubSpotPortalConnection,
 } from '@huboverse/types';
 import {
   DEMO_HUBSPOT_CONNECTION,
@@ -48,13 +49,19 @@ import {
 interface AnnaBuildInterfaceProps {
   initialPrompt?: string;
   onSwitchToChatMode: () => void;
+  portalId?: string;
+  portalName?: string;
 }
 
 export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
   initialPrompt,
   onSwitchToChatMode,
+  portalId,
+  portalName,
 }) => {
-  const schema = getPortalSchemaRegistry(DEMO_HUBSPOT_CONNECTION.portalId);
+  const activePortalId = portalId || DEMO_HUBSPOT_CONNECTION.portalId;
+  const activePortalName = portalName || DEMO_HUBSPOT_CONNECTION.portalName;
+  const schema = getPortalSchemaRegistry(activePortalId);
   const architect = React.useMemo(() => new HuboVerseBuildModeArchitect(), []);
 
   const [prompt, setPrompt] = useState(
@@ -137,7 +144,7 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           blueprint,
-          portalId: DEMO_HUBSPOT_CONNECTION.portalId,
+          portalId: activePortalId,
           approvalVersion: 1,
         }),
       });
@@ -151,10 +158,15 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
       } else {
         // Fallback to client-side deterministic execution engine
         const idempotencyKey = `wf_dep_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const dynamicConn: HubSpotPortalConnection = {
+          ...DEMO_HUBSPOT_CONNECTION,
+          portalId: activePortalId,
+          portalName: activePortalName,
+        };
         const result = await executeWorkflowDeploymentEngine(
           blueprint,
-          DEMO_HUBSPOT_CONNECTION,
-          'usr_sarah_cto',
+          dynamicConn,
+          'usr_client_admin',
           idempotencyKey
         );
         setDeploymentResult(result);
@@ -162,10 +174,15 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
     } catch {
       // Local fallback
       const idempotencyKey = `wf_dep_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const dynamicConn: HubSpotPortalConnection = {
+        ...DEMO_HUBSPOT_CONNECTION,
+        portalId: activePortalId,
+        portalName: activePortalName,
+      };
       const result = await executeWorkflowDeploymentEngine(
         blueprint,
-        DEMO_HUBSPOT_CONNECTION,
-        'usr_sarah_cto',
+        dynamicConn,
+        'usr_client_admin',
         idempotencyKey
       );
       setDeploymentResult(result);
@@ -203,7 +220,7 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-white font-bold">
-              Connected: {DEMO_HUBSPOT_CONNECTION.portalName} (ID: #{DEMO_HUBSPOT_CONNECTION.portalId})
+              Connected: {activePortalName} (ID: #{activePortalId})
             </span>
           </div>
           <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-[11px]">
@@ -445,7 +462,7 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-800">
-                      Grounded in Portal #{DEMO_HUBSPOT_CONNECTION.portalId}
+                      Grounded in Portal #{activePortalId}
                     </span>
                   </div>
 
