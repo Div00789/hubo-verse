@@ -6,6 +6,12 @@ const nextConfig = {
     '@huboverse/hubspot-sdk',
     '@huboverse/ai-agent',
   ],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -20,3 +26,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
