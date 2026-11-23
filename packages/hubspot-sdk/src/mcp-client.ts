@@ -283,17 +283,7 @@ export class HubSpotMcpClient {
       }
     }
 
-    return {
-      hub_id: 46100478,
-      email: 'div@huboexperts.com',
-      scopes: [
-        'crm.objects.contacts.read',
-        'crm.objects.contacts.write',
-        'crm.objects.deals.read',
-        'crm.objects.deals.write',
-        'automation',
-      ],
-    };
+    throw new Error('TOKEN_INSPECTION_FAILED: Unable to verify token identity with HubSpot.');
   }
 
   /**

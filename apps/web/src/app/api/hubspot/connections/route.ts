@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   // Determine active portal ID
   let activePortalId = activePortalCookie;
   if (!activePortalId || !allConnections.some((c) => c.portalId === activePortalId)) {
-    activePortalId = allConnections.length > 0 ? allConnections[0].portalId : getActiveRuntimePortalId();
+    activePortalId = allConnections.length > 0 ? allConnections[0].portalId : undefined;
   }
 
   // Format connections safely (never expose raw secrets to client)
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       hubspotDomain: conn.hubspotDomain || `app.hubspot.com/reports-dashboard/${conn.portalId}`,
       status: conn.status,
       installedScopes: conn.installedScopes || [],
-      hubs: conn.hubs || DEMO_HUBSPOT_CONNECTION.hubs,
+      hubs: conn.hubs || {},
       isLiveConnected: conn.status === 'CONNECTED',
       lastSuccessfulCheck: conn.lastSuccessfulCheck || new Date().toLocaleTimeString(),
       connectedUser: conn.connectedUser || conn.connectedByUserId || 'Authorized User',

@@ -219,22 +219,22 @@ export class HubSpotLiveDataService {
       contactCount,
       unassignedContacts,
       companyCount,
-      dealCount,
-      pipelineValue,
+      dealClassification,
       owners,
       workflows,
       tickets,
       pipelines,
+      myContacts,
     ] = await Promise.all([
       this.getContactCount().catch(() => null),
       this.getUnassignedContactsCount().catch(() => null),
       this.getCompanyCount().catch(() => null),
-      this.getDealCount().catch(() => null),
-      this.getDealPipelineValue().catch(() => null),
+      this.getDealsClassification().catch(() => null),
       this.getOwnerCount().catch(() => null),
       this.getWorkflowInventory().catch(() => null),
       this.getTicketCount().catch(() => null),
       this.getPipelines().catch(() => null),
+      this.getMyContactsCount(userEmail).catch(() => ({ count: null, ownerName: undefined, ownerId: undefined })),
     ]);
 
     const workflowBreakdown = (workflows as any)?.breakdown || {};
@@ -256,8 +256,14 @@ export class HubSpotLiveDataService {
           unassignedContacts?.value !== null && unassignedContacts?.value !== undefined
             ? Number(unassignedContacts.value)
             : null,
+        myContacts: myContacts?.count ?? null,
         status: contactCount?.status || 'unavailable',
-        notes: contactCount?.summary,
+        notes: myContacts?.count != null
+          ? `Portal-wide: ${contactCount?.value?.toLocaleString() || 0} contacts (${unassignedContacts?.value?.toLocaleString() || 0} unassigned, ${myContacts.count.toLocaleString()} assigned to ${myContacts.ownerName || 'you'})`
+          : contactCount?.summary,
+        verifiedAt: now,
+        source: 'HubSpot CRM Search API (/crm/v3/objects/contacts/search)',
+        definition: 'Total unarchived portal contacts across all team members and unassigned records',
       },
       companies: {
         total:
@@ -265,26 +271,21 @@ export class HubSpotLiveDataService {
             ? Number(companyCount.value)
             : null,
         status: companyCount?.status || 'unavailable',
+        verifiedAt: now,
+        source: 'HubSpot CRM Search API (/crm/v3/objects/companies/search)',
+        definition: 'Total unarchived company records in portal',
       },
       deals: {
-        total:
-          dealCount?.value !== null && dealCount?.value !== undefined
-            ? Number(dealCount.value)
-            : null,
-        openCount: (dealCount as any)?.openDeals ?? null,
-        totalPipelineValue:
-          pipelineValue?.value !== null && pipelineValue?.value !== undefined
-            ? (typeof pipelineValue.value === 'number'
-                ? pipelineValue.value
-                : Number((pipelineValue.value as any)?.totalPipelineValue || 0))
-            : null,
-        formattedPipelineValue:
-          pipelineValue?.value !== null && pipelineValue?.value !== undefined
-            ? `$${(typeof pipelineValue.value === 'number'
-                ? pipelineValue.value
-                : Number((pipelineValue.value as any)?.totalPipelineValue || 0)).toLocaleString()}`
-            : '$0',
-        status: dealCount?.status || 'unavailable',
+        total: dealClassification ? dealClassification.totalDeals : null,
+        openCount: dealClassification ? dealClassification.openDeals : null,
+        closedWonCount: dealClassification ? dealClassification.closedWonDeals : null,
+        closedLostCount: dealClassification ? dealClassification.closedLostDeals : null,
+        totalPipelineValue: dealClassification ? dealClassification.openPipelineValue : null,
+        formattedPipelineValue: dealClassification ? dealClassification.formattedOpenValue : '$0.00',
+        status: dealClassification?.status || 'unavailable',
+        verifiedAt: now,
+        source: dealClassification?.source || 'HubSpot Deals API',
+        definition: `Open deals filtered by active pipeline stages (${dealClassification?.stagesSummary || ''})`,
       },
       dealPipelines: {
         total:
@@ -298,6 +299,9 @@ export class HubSpotLiveDataService {
             ? Number(pipelines.value.totalStages)
             : null,
         status: (pipelines?.status as any) || 'unavailable',
+        verifiedAt: now,
+        source: 'HubSpot Pipeline Schema API (/crm/v3/pipelines/deals)',
+        definition: 'Total configured deal pipelines and active stages',
       },
       owners: {
         total:
@@ -310,6 +314,8 @@ export class HubSpotLiveDataService {
           name: b.label || '',
           email: b.percentage || b.email || '',
         })),
+        verifiedAt: now,
+        source: 'HubSpot Owners API (/crm/v3/owners)',
       },
       workflows: {
         total: totalWorkflows,
@@ -317,6 +323,8 @@ export class HubSpotLiveDataService {
         inactive: workflowBreakdown?.inactiveCount ?? null,
         status: workflows?.status || 'unavailable',
         reason: workflows?.limitations?.[0] || workflows?.summary,
+        verifiedAt: now,
+        source: 'HubSpot Automation API (/automation/v4/flows)',
       },
       tickets: {
         total:
@@ -324,6 +332,8 @@ export class HubSpotLiveDataService {
             ? Number(tickets.value)
             : null,
         status: tickets?.status || 'unavailable',
+        verifiedAt: now,
+        source: 'HubSpot Tickets API (/crm/v3/objects/tickets)',
       },
       lastSyncedAt: now,
     };
@@ -566,6 +576,171 @@ export class HubSpotLiveDataService {
       limitations: [],
       summary: 'Unable to retrieve this metric from the connected HubSpot portal.',
     };
+  }
+
+  /**
+   * 4b. DETERMINISTIC DEAL STAGE CLASSIFICATION & OPEN / WON / LOST COUNTS
+   */
+  public async getDealsClassification(): Promise<{
+    totalDeals: number;
+    openDeals: number;
+    closedWonDeals: number;
+    closedLostDeals: number;
+    openPipelineValue: number;
+    formattedOpenValue: string;
+    status: MetricVerificationStatus;
+    source: string;
+    stagesSummary: string;
+  }> {
+    try {
+      // 1. Fetch live pipelines to inspect stage metadata
+      const pipeRes = await this.fetchApi<any>('/crm/v3/pipelines/deals');
+      const pipelines = pipeRes.status === 200 && pipeRes.data?.results ? pipeRes.data.results : [];
+
+      const openStageIds: string[] = [];
+      const wonStageIds: string[] = [];
+      const lostStageIds: string[] = [];
+
+      pipelines.forEach((pipe: any) => {
+        (pipe.stages || []).forEach((stg: any) => {
+          const isClosed = stg.metadata?.isClosed === 'true';
+          const prob = parseFloat(stg.metadata?.probability ?? '-1');
+          const labelLower = (stg.label || '').toLowerCase();
+          const idLower = (stg.id || '').toLowerCase();
+
+          if (!isClosed) {
+            openStageIds.push(stg.id);
+          } else if (prob === 1.0 || labelLower.includes('won') || idLower.includes('won')) {
+            wonStageIds.push(stg.id);
+          } else {
+            lostStageIds.push(stg.id);
+          }
+        });
+      });
+
+      // 2. Query exact totals using search API
+      const [totalRes, openRes, wonRes, lostRes] = await Promise.all([
+        this.fetchApi<any>('/crm/v3/objects/deals/search', {
+          method: 'POST',
+          body: JSON.stringify({ limit: 1 }),
+        }),
+        openStageIds.length > 0
+          ? this.fetchApi<any>('/crm/v3/objects/deals/search', {
+              method: 'POST',
+              body: JSON.stringify({
+                filterGroups: [{ filters: [{ propertyName: 'dealstage', operator: 'IN', values: openStageIds }] }],
+                limit: 1,
+              }),
+            })
+          : Promise.resolve({ status: 200, data: { total: 0 } }),
+        wonStageIds.length > 0
+          ? this.fetchApi<any>('/crm/v3/objects/deals/search', {
+              method: 'POST',
+              body: JSON.stringify({
+                filterGroups: [{ filters: [{ propertyName: 'dealstage', operator: 'IN', values: wonStageIds }] }],
+                limit: 1,
+              }),
+            })
+          : Promise.resolve({ status: 200, data: { total: 0 } }),
+        lostStageIds.length > 0
+          ? this.fetchApi<any>('/crm/v3/objects/deals/search', {
+              method: 'POST',
+              body: JSON.stringify({
+                filterGroups: [{ filters: [{ propertyName: 'dealstage', operator: 'IN', values: lostStageIds }] }],
+                limit: 1,
+              }),
+            })
+          : Promise.resolve({ status: 200, data: { total: 0 } }),
+      ]);
+
+      const totalDeals = totalRes.status === 200 ? (totalRes.data?.total ?? 0) : 0;
+      const openDeals = openRes.status === 200 ? (openRes.data?.total ?? 0) : 0;
+      const closedWonDeals = wonRes.status === 200 ? (wonRes.data?.total ?? 0) : 0;
+      const closedLostDeals = lostRes.status === 200 ? (lostRes.data?.total ?? 0) : 0;
+
+      // 3. Open pipeline value: fetch open deals with amount
+      let openValue = 0;
+      if (openStageIds.length > 0) {
+        const valRes = await this.fetchApi<any>('/crm/v3/objects/deals/search', {
+          method: 'POST',
+          body: JSON.stringify({
+            filterGroups: [{ filters: [{ propertyName: 'dealstage', operator: 'IN', values: openStageIds }] }],
+            properties: ['amount'],
+            limit: 100,
+          }),
+        });
+        if (valRes.status === 200 && valRes.data?.results) {
+          openValue = valRes.data.results.reduce((acc: number, d: any) => {
+            const a = parseFloat(d.properties?.amount || '0');
+            return acc + (isNaN(a) ? 0 : a);
+          }, 0);
+        }
+      }
+
+      return {
+        totalDeals,
+        openDeals,
+        closedWonDeals,
+        closedLostDeals,
+        openPipelineValue: openValue,
+        formattedOpenValue: `$${openValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        status: totalRes.status === 200 ? 'verified' : 'unavailable',
+        source: 'HubSpot Deals Search API & Pipelines API',
+        stagesSummary: `${openStageIds.length} open stages, ${wonStageIds.length} won stages, ${lostStageIds.length} lost stages across ${pipelines.length} pipelines`,
+      };
+    } catch {
+      return {
+        totalDeals: 0,
+        openDeals: 0,
+        closedWonDeals: 0,
+        closedLostDeals: 0,
+        openPipelineValue: 0,
+        formattedOpenValue: '$0.00',
+        status: 'unavailable',
+        source: 'HubSpot Deals API',
+        stagesSummary: 'Unable to classify pipeline stages',
+      };
+    }
+  }
+
+  /**
+   * 4c. CURRENT USER / OWNER-FILTERED CONTACTS COUNT (e.g. "My contacts" in HubSpot UI)
+   */
+  public async getMyContactsCount(userEmail?: string): Promise<{ count: number | null; ownerName?: string; ownerId?: string }> {
+    if (!userEmail) return { count: null };
+    try {
+      const ownersRes = await this.fetchApi<any>('/crm/v3/owners?limit=100');
+      if (ownersRes.status !== 200 || !ownersRes.data?.results) {
+        return { count: null };
+      }
+      const targetOwner = ownersRes.data.results.find(
+        (o: any) => (o.email || '').toLowerCase() === userEmail.toLowerCase()
+      );
+      if (!targetOwner) {
+        return { count: null };
+      }
+      const ownerId = targetOwner.id;
+      const ownerName = `${targetOwner.firstName || ''} ${targetOwner.lastName || ''}`.trim() || targetOwner.email;
+
+      const searchRes = await this.fetchApi<any>('/crm/v3/objects/contacts/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          filterGroups: [{ filters: [{ propertyName: 'hubspot_owner_id', operator: 'EQ', value: ownerId }] }],
+          limit: 1,
+        }),
+      });
+
+      if (searchRes.status === 200 && searchRes.data) {
+        return {
+          count: searchRes.data.total ?? 0,
+          ownerName,
+          ownerId,
+        };
+      }
+      return { count: null };
+    } catch {
+      return { count: null };
+    }
   }
 
   /**
@@ -1535,10 +1710,12 @@ export class HubSpotLiveDataService {
   /**
    * Deterministic CRM Question Dispatcher
    */
-  public async answerChatQuery(query: string, portalId: string): Promise<CrmDataResult> {
+  public async answerChatQuery(query: string, portalId: string, userEmail?: string): Promise<CrmDataResult> {
     const q = query.toLowerCase().trim();
     const now = new Date();
     const timeStr = now.toLocaleTimeString();
+    const conn = getPersistentConnectionByPortalId(portalId);
+    const resolvedEmail = userEmail || conn?.connectedUser || process.env.HUBSPOT_AUTHORIZED_USER;
 
     // 1. Total Contacts
     if (
@@ -1549,20 +1726,32 @@ export class HubSpotLiveDataService {
     ) {
       const metric = await this.getContactCount();
       const unassigned = await this.getUnassignedContactsCount();
+      const myContacts = await this.getMyContactsCount(resolvedEmail);
+
+      const metricsList: Array<{ label: string; value: any; change?: string; subtext?: string }> = [
+        { label: 'Total Portal Contacts', value: metric.value ?? 'Unavailable', change: 'Portal-Wide (All Owners)' },
+        { label: 'Unassigned Contacts', value: unassigned.value ?? 'Unavailable', subtext: 'Lacks hubspot_owner_id' },
+      ];
+
+      if (myContacts.count != null) {
+        metricsList.push({
+          label: `My Contacts (${myContacts.ownerName || 'You'})`,
+          value: myContacts.count,
+          subtext: 'Filtered by Contact Owner in HubSpot',
+        });
+      }
+
+      metricsList.push({ label: 'Verification Status', value: metric.status.toUpperCase(), subtext: 'Verified via Live Search API' });
 
       return {
         title: metric.displayTitle || 'Total Contacts in Portal',
         source: `${metric.source} • Portal #${portalId}`,
         period: `Verified at ${timeStr}`,
-        summary: metric.summary || `Verified ${metric.value} active contacts.`,
-        metrics: [
-          { label: 'Total Verified Contacts', value: metric.value ?? 'Unavailable', change: 'Exact API Count' },
-          { label: 'Unassigned Contacts', value: unassigned.value ?? 'Unavailable', subtext: 'Lacks owner ID' },
-          { label: 'Status', value: metric.status.toUpperCase(), subtext: 'Deterministic read' },
-        ],
+        summary: `Verified ${metric.value} total unarchived contacts in HubSpot portal #${portalId}. Note that filtered views in HubSpot (like "My contacts") display a subset (${myContacts.count ?? 'individual allocation'}) assigned to that specific user.`,
+        metrics: metricsList,
         insights: [
-          `Retrieved directly from live HubSpot portal #${portalId}.`,
-          metric.limitations.length > 0 ? metric.limitations[0] : 'All contacts match portal search index.',
+          `Retrieved directly from live HubSpot portal #${portalId} via CRM Search API.`,
+          `Portal total: ${metric.value} records. Unassigned: ${unassigned.value} records.`,
         ],
         suggestedFollowUps: [
           'Which contacts have no assigned owner?',
@@ -1598,32 +1787,26 @@ export class HubSpotLiveDataService {
       q.includes('closed won') ||
       q.includes('deal count') ||
       q === 'deals' ||
-      q.includes('show deals')
+      q.includes('show deals') ||
+      q.includes('open deals')
     ) {
-      const totalDeals = await this.getDealCount();
-      const stageBreakdown = await this.getDealsByStage();
-      const pipeValue = await this.getDealPipelineValue();
-
-      const openCount = stageBreakdown.value?.openDeals ?? 0;
-      const wonCount = stageBreakdown.value?.closedWonDeals ?? 0;
-      const totalAmt = pipeValue.value?.totalPipelineValue ?? 0;
+      const deals = await this.getDealsClassification();
 
       return {
         title: 'Live Deals & Pipeline Status',
-        source: `${totalDeals.source} • Portal #${portalId}`,
+        source: `${deals.source} • Portal #${portalId}`,
         period: `Verified at ${timeStr}`,
-        summary: `Verified ${totalDeals.value} total deal(s) in portal #${portalId}: ${openCount} open deal(s) and ${wonCount} closed-won deal(s) with an aggregate pipeline value of $${totalAmt.toLocaleString()}.`,
+        summary: `Verified ${deals.totalDeals} total deal(s) in portal #${portalId}: ${deals.openDeals} open deal(s), ${deals.closedWonDeals} closed-won deal(s), and ${deals.closedLostDeals} closed-lost deal(s) with ${deals.formattedOpenValue} in open pipeline revenue.`,
         metrics: [
-          { label: 'Total Deals', value: totalDeals.value ?? 0, change: 'Verified in CRM' },
-          { label: 'Open Deals', value: openCount, subtext: 'In Active Pipelines' },
-          { label: 'Closed-Won Deals', value: wonCount, subtext: 'Won Revenue' },
-          { label: 'Total Value', value: `$${totalAmt.toLocaleString()}`, subtext: 'Aggregate deal amount' },
+          { label: 'Total Deals', value: deals.totalDeals, change: 'All Pipelines' },
+          { label: 'Open Deals', value: deals.openDeals, subtext: 'Active Pipeline Stages' },
+          { label: 'Closed-Won Deals', value: deals.closedWonDeals, subtext: 'Won Revenue' },
+          { label: 'Closed-Lost Deals', value: deals.closedLostDeals, subtext: 'Lost Opportunities' },
+          { label: 'Open Pipeline Value', value: deals.formattedOpenValue, subtext: 'Sum of open deal amounts' },
         ],
-        tableHeaders: ['Stage / Category', 'Deal Count', 'Percentage'],
-        tableRows: (stageBreakdown.breakdown || []).map((b) => [b.label, b.count, b.percentage || '-']),
         insights: [
-          `Verified live against HubSpot portal #${portalId}.`,
-          pipeValue.limitations.length > 0 ? pipeValue.limitations[0] : 'All monetary values calculated deterministically.',
+          `Verified live against HubSpot portal #${portalId} using pipeline stage metadata.`,
+          `Only stages where isClosed !== true are counted as Open Deals.`,
         ],
         suggestedFollowUps: [
           'What is the total deal pipeline value?',
@@ -1635,26 +1818,27 @@ export class HubSpotLiveDataService {
 
     // 4. Total Deal Pipeline Value
     if (q.includes('pipeline value') || q.includes('total value') || q.includes('deal value')) {
-      const pipeValue = await this.getDealPipelineValue();
-      const totalAmt = pipeValue.value?.totalPipelineValue ?? 0;
-      const openAmt = pipeValue.value?.openPipelineValue ?? 0;
-      const wonAmt = pipeValue.value?.closedWonValue ?? 0;
+      const deals = await this.getDealsClassification();
 
       return {
-        title: pipeValue.displayTitle || 'Total Deal Pipeline Value',
-        source: `${pipeValue.source} • Portal #${portalId}`,
+        title: 'Live Deal Pipeline Value',
+        source: `${deals.source} • Portal #${portalId}`,
         period: `Verified at ${timeStr}`,
-        summary: pipeValue.summary || `Pipeline value: $${totalAmt.toLocaleString()}`,
+        summary: `Verified active pipeline value: ${deals.formattedOpenValue} across ${deals.openDeals} open deal(s) in portal #${portalId}.`,
         metrics: [
-          { label: 'Total Pipeline Value', value: `$${totalAmt.toLocaleString()}`, change: 'Sum of real amounts' },
-          { label: 'Open Deals Value', value: `$${openAmt.toLocaleString()}`, subtext: 'Active Pipeline' },
-          { label: 'Closed-Won Revenue', value: `$${wonAmt.toLocaleString()}`, subtext: 'Realized Revenue' },
+          { label: 'Open Pipeline Value', value: deals.formattedOpenValue, change: 'Active Deal Amount' },
+          { label: 'Open Deals', value: deals.openDeals, subtext: 'Qualifying active stages' },
+          { label: 'Total Deals in Portal', value: deals.totalDeals, subtext: 'All deal records' },
         ],
         insights: [
-          `Calculated deterministically from real amount properties on portal #${portalId}.`,
-          pipeValue.limitations.length > 0 ? pipeValue.limitations[0] : 'No currency conflicts detected.',
+          `Calculated deterministically from open deal records in portal #${portalId}.`,
+          `Excludes closed-lost deals and closed-won deals.`,
         ],
-        suggestedFollowUps: ['How many deals are open?', 'Audit my complete HubSpot portal.'],
+        suggestedFollowUps: [
+          'How many deals are open?',
+          'Which contacts have no assigned owner?',
+          'Audit my complete HubSpot portal.',
+        ],
       };
     }
 

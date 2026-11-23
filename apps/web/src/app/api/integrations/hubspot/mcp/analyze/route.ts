@@ -9,8 +9,15 @@ export async function GET(request: NextRequest) {
   const portalId =
     request.nextUrl.searchParams.get('portalId') ||
     request.cookies.get('active_hubspot_portal')?.value ||
-    process.env.HUBSPOT_DEFAULT_PORTAL_ID ||
-    '46100478';
+    process.env.HUBSPOT_PORTAL_ID ||
+    process.env.HUBSPOT_DEFAULT_PORTAL_ID;
+
+  if (!portalId) {
+    return NextResponse.json(
+      { error: 'NO_PORTAL_SELECTED', message: 'No HubSpot portal is selected for analysis.' },
+      { status: 400 }
+    );
+  }
 
   const schema = getPortalSchemaRegistry(portalId);
   const liveDataService = new HubSpotLiveDataService(portalId);

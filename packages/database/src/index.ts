@@ -42,11 +42,11 @@ export const DEMO_ORGANIZATION: Organization = {
 };
 
 export const DEMO_HUBSPOT_CONNECTION: HubSpotPortalConnection = {
-  id: 'conn_hs_46100478',
+  id: `conn_hs_${process.env.HUBSPOT_PORTAL_ID || process.env.HUBSPOT_DEFAULT_PORTAL_ID || '39611297'}`,
   organizationId: 'org_enterprise_01',
-  portalId: '46100478',
-  portalName: 'HubSpot Demo Account',
-  hubspotDomain: 'app.hubspot.com/reports-dashboard/46100478',
+  portalId: process.env.HUBSPOT_PORTAL_ID || process.env.HUBSPOT_DEFAULT_PORTAL_ID || '39611297',
+  portalName: process.env.HUBSPOT_PORTAL_NAME || 'HuboExperts',
+  hubspotDomain: `app.hubspot.com/reports-dashboard/${process.env.HUBSPOT_PORTAL_ID || process.env.HUBSPOT_DEFAULT_PORTAL_ID || '39611297'}`,
   installedScopes: [
     'crm.objects.contacts.read',
     'crm.objects.contacts.write',
@@ -311,7 +311,7 @@ export const INITIAL_ANNA_MESSAGES: AnnaChatMessage[] = [
     sender: 'ANNA',
     content: `Hello! I am **Anna**, your enterprise HubSpot intelligence partner at **HuboVerse**.
 
-I am connected to your portal **HubSpot Demo Account (ID: #46100478)**.
+I am connected to your active HubSpot portal and ready to answer queries regarding your live contacts, companies, deals, pipelines, and workflows.
 
 I can assist you in two distinct modes:
 - **Chat Mode**: Explore best practices, troubleshoot workflow enrollment failures, or receive step-by-step guidance.
@@ -329,7 +329,7 @@ How can I help accelerate your HubSpot operations today?`,
       {
         id: 'c_init',
         sourceType: 'PORTAL_SCHEMA',
-        title: 'Portal Connection Verified: HubSpot Demo Account (ID #46100478)',
+        title: 'Portal Connection Verified: Active HubSpot Portal',
         snippet: 'Hubs detected: Sales Enterprise, Marketing Pro, Service Pro, Operations Starter.',
       },
     ],
@@ -371,11 +371,11 @@ export const DEMO_BUILD_EXECUTION: AnnaBuildExecution = {
 };
 
 // ============================================================================
-// 8. VERIFIED PORTAL SCHEMA REGISTRY (Portal #46100478 - HubSpot Demo Account)
+// 8. VERIFIED PORTAL SCHEMA REGISTRY
 // ============================================================================
 export const DEMO_PORTAL_SCHEMA_REGISTRY: PortalSchemaRegistry = {
-  portalId: '46100478',
-  portalName: 'HubSpot Demo Account',
+  portalId: process.env.HUBSPOT_PORTAL_ID || process.env.HUBSPOT_DEFAULT_PORTAL_ID || '39611297',
+  portalName: process.env.HUBSPOT_PORTAL_NAME || 'HuboExperts',
   refreshedAt: new Date().toISOString(),
   properties: {
     contacts: [
@@ -493,28 +493,9 @@ export const DEMO_PORTAL_SCHEMA_REGISTRY: PortalSchemaRegistry = {
 };
 
 // In-memory runtime stores for portal schema and deployments (synced with Supabase tables)
-let runtimeSchemaRegistry: Record<string, PortalSchemaRegistry> = {
-  '46100478': DEMO_PORTAL_SCHEMA_REGISTRY,
-};
+let runtimeSchemaRegistry: Record<string, PortalSchemaRegistry> = {};
 
-let runtimeDeployments: WorkflowDeploymentRecord[] = [
-  {
-    id: 'dep_init_01',
-    organizationId: 'org_enterprise_01',
-    portalId: '46100478',
-    blueprintId: 'bp_demo_lead_assign',
-    blueprintVersion: 1,
-    idempotencyKey: 'idem_46100478_lead_assign_v1',
-    blueprintHash: 'h_f9823ad761c9e',
-    hubspotWorkflowId: 'wf_502',
-    status: 'ACTIVE',
-    deepLink: 'https://app.hubspot.com/workflows/46100478/flow/wf_502',
-    readbackVerified: true,
-    verificationNotes: 'Verified: 1 trigger, 2 sequential actions, verified contact owner assignment.',
-    deployedAt: '2026-11-18T12:00:00Z',
-    verifiedAt: '2026-11-18T12:00:05Z',
-  },
-];
+let runtimeDeployments: WorkflowDeploymentRecord[] = [];
 
 export function getPortalSchemaRegistry(portalId: string): PortalSchemaRegistry {
   if (runtimeSchemaRegistry[portalId]) {
@@ -616,7 +597,8 @@ function loadStoreFromDisk(): StoreData {
     // Fallback if read fails
   }
 
-  const defaultPortalId = process.env.HUBSPOT_DEFAULT_PORTAL_ID || '46100478';
+  const defaultPortalId = process.env.HUBSPOT_PORTAL_ID || process.env.HUBSPOT_DEFAULT_PORTAL_ID || '39611297';
+  const defaultPortalName = process.env.HUBSPOT_PORTAL_NAME || 'HuboExperts';
   const hasRefreshToken = Boolean(process.env.HUBSPOT_REFRESH_TOKEN);
 
   const initialConnections: Record<string, PersistentConnectionRecord> = {};
@@ -627,8 +609,8 @@ function loadStoreFromDisk(): StoreData {
       organizationId: 'org_enterprise_01',
       workspaceId: 'org_enterprise_01',
       portalId: defaultPortalId,
-      portalName: process.env.HUBSPOT_PORTAL_NAME || 'HubSpot Demo Account',
-      accountName: process.env.HUBSPOT_PORTAL_NAME || 'HubSpot Demo Account',
+      portalName: defaultPortalName,
+      accountName: defaultPortalName,
       hubspotDomain: `app.hubspot.com/reports-dashboard/${defaultPortalId}`,
       installedScopes: [
         'crm.objects.contacts.read',
@@ -661,7 +643,7 @@ function loadStoreFromDisk(): StoreData {
       lastVerifiedAt: new Date().toISOString(),
       authMethod: 'OAUTH',
       isLiveConnected: true,
-      refreshToken: process.env.HUBSPOT_REFRESH_TOKEN || 'na1-e2c7-b237-4dbd-950d-c3b0e4909cbf',
+      refreshToken: process.env.HUBSPOT_REFRESH_TOKEN,
       accessToken: process.env.HUBSPOT_ACCESS_TOKEN,
     };
   }

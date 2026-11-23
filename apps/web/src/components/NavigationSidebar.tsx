@@ -229,13 +229,15 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
         <div className="pt-1 border-t border-[#1E293B]/60">
           <div className="text-[10px] text-gray-400 flex items-center justify-between">
             <span>CRM Sync</span>
-            <span className="flex items-center gap-1 text-emerald-400 font-mono text-[10px]">
-              <CheckCircle2 className="w-3 h-3" /> Live
+            <span className={`flex items-center gap-1 font-mono text-[10px] ${isPortalConnected ? 'text-emerald-400' : 'text-slate-500'}`}>
+              <CheckCircle2 className="w-3 h-3" /> {isPortalConnected ? 'Live' : 'Standby'}
             </span>
           </div>
-          <div className="text-xs text-white font-medium truncate mt-0.5">{portalName}</div>
+          <div className="text-xs text-white font-medium truncate mt-0.5">
+            {isPortalConnected ? (portalName || `Portal #${portalId}`) : 'No Portal Connected'}
+          </div>
           <div className="text-[10px] text-gray-400 font-mono">
-            {isPortalConnected && portalId ? `Portal #${portalId}` : 'No Portal Connected'}
+            {isPortalConnected && portalId ? `Portal #${portalId}` : 'Select in Connected Portals'}
           </div>
         </div>
       </div>

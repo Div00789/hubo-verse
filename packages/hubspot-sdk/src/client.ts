@@ -143,34 +143,12 @@ export class HubSpotOAuthManager {
   }
 
   public async verifyTokenInfo(accessToken: string): Promise<HubSpotTokenInfo> {
-    try {
-      const response = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${accessToken}`);
-      if (response.ok) {
-        return (await response.json()) as HubSpotTokenInfo;
-      }
-    } catch (e) {
-      // Fallback verification
+    const response = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${accessToken}`);
+    if (response.ok) {
+      return (await response.json()) as HubSpotTokenInfo;
     }
-
-    return {
-      token: accessToken,
-      user: 'div@huboexperts.com',
-      hub_domain: 'app.hubspot.com/reports-dashboard/46100478',
-      scopes: [
-        'crm.objects.contacts.read',
-        'crm.objects.contacts.write',
-        'crm.schemas.contacts.read',
-        'crm.schemas.contacts.write',
-        'crm.objects.deals.read',
-        'crm.objects.deals.write',
-        'automation',
-      ],
-      hub_id: 46100478,
-      app_id: 89124,
-      expires_in: 21600,
-      user_id: 91823,
-      token_type: 'bearer',
-    };
+    const errText = await response.text().catch(() => '');
+    throw new Error(`TOKEN_VERIFICATION_FAILED: HubSpot rejected access token verification (HTTP ${response.status}): ${errText}`);
   }
 }
 

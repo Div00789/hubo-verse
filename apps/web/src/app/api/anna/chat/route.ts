@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runAnnaChatStep } from '@huboverse/ai-agent';
-import { DEMO_HUBSPOT_CONNECTION } from '@huboverse/database';
+import {
+  getPersistentActivePortalId,
+  getPersistentConnectionByPortalId,
+} from '@huboverse/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,19 +19,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const activePortalId =
+    const activePortalId = (
       portalId ||
       request.cookies.get('active_hubspot_portal')?.value ||
-      DEMO_HUBSPOT_CONNECTION.portalId;
+      getPersistentActivePortalId() ||
+      ''
+    ).trim();
+
+    const conn = activePortalId ? getPersistentConnectionByPortalId(activePortalId) : null;
 
     const result = await runAnnaChatStep({
       conversationId: conversationId || `conv_${Date.now()}`,
       userQuery: query,
       organizationId: 'org_enterprise_01',
-      portalContext: {
-        portalId: activePortalId,
-        hubs: DEMO_HUBSPOT_CONNECTION.hubs,
-      },
+      portalContext: activePortalId
+        ? {
+            portalId: activePortalId,
+            hubs: (conn?.hubs as any) || {},
+          }
+        : undefined,
       retrievedCitations: [],
       responseMarkdown: '',
       suggestedPrompts: [],

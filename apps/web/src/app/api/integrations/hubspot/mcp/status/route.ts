@@ -8,8 +8,17 @@ export async function GET(request: NextRequest) {
   const portalId =
     request.cookies.get('active_hubspot_portal')?.value ||
     getActiveRuntimePortalId() ||
-    process.env.HUBSPOT_DEFAULT_PORTAL_ID ||
-    '46100478';
+    process.env.HUBSPOT_PORTAL_ID ||
+    process.env.HUBSPOT_DEFAULT_PORTAL_ID;
+
+  if (!portalId) {
+    return NextResponse.json({
+      status: 'UNAVAILABLE',
+      details: 'No connected HubSpot account selected.',
+      isConfigured: false,
+      portalId: null,
+    });
+  }
 
   const connection = getHubSpotConnectionByPortalId(portalId);
 

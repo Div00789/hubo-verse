@@ -23,11 +23,11 @@ export const DEMO_ORGANIZATION: Organization = {
 };
 
 export const DEMO_HUBSPOT_CONNECTION: HubSpotPortalConnection = {
-  id: 'conn_hs_46100478',
+  id: 'conn_hs_39611297',
   organizationId: 'org_enterprise_01',
-  portalId: '46100478',
-  portalName: 'HubSpot Demo Account',
-  hubspotDomain: 'app.hubspot.com/reports-dashboard/46100478',
+  portalId: '39611297',
+  portalName: 'HuboExperts',
+  hubspotDomain: 'app.hubspot.com/reports-dashboard/39611297',
   installedScopes: [
     'crm.objects.contacts.read',
     'crm.objects.contacts.write',
@@ -147,7 +147,7 @@ export const INITIAL_ANNA_MESSAGES: AnnaChatMessage[] = [
     sender: 'ANNA',
     content: `Hello! I am **Anna**, your enterprise HubSpot intelligence partner at **HuboVerse**.
 
-I am connected to your portal **HubSpot Demo Account (ID: #46100478)**.
+I am connected to your active HubSpot portal.
 
 I can assist you in two distinct modes:
 - **Chat Mode**: Explore best practices, troubleshoot workflow enrollment failures, or receive step-by-step guidance.
@@ -165,7 +165,7 @@ How can I help accelerate your HubSpot operations today?`,
       {
         id: 'c_init',
         sourceType: 'PORTAL_SCHEMA',
-        title: 'Portal Connection Verified: HubSpot Demo Account (ID #46100478)',
+        title: 'Portal Connection Verified: Active HubSpot Portal',
         snippet: 'Hubs detected: Sales Enterprise, Marketing Pro, Service Pro, Operations Starter.',
       },
     ],

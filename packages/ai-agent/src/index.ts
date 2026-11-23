@@ -472,7 +472,8 @@ export interface ChatGraphState {
   organizationId: string;
   portalContext?: {
     portalId: string;
-    hubs: Record<string, string>;
+    portalName?: string;
+    hubs: Record<string, any>;
   };
   retrievedCitations: AnnaCitation[];
   responseMarkdown: string;
@@ -482,7 +483,7 @@ export interface ChatGraphState {
 }
 
 export async function runAnnaChatStep(state: ChatGraphState): Promise<ChatGraphState> {
-  const portalId = state.portalContext?.portalId || '46100478';
+  const portalId = state.portalContext?.portalId;
   const queryLower = state.userQuery.toLowerCase();
 
   // Mode boundary defense: Reject any attempt to perform mutations in Chat Mode
@@ -509,6 +510,31 @@ To safely synthesize, preview dry-run diffs, and deploy this change:
         'Show me deals closing this week.',
       ],
       tokensConsumed: 120,
+    };
+  }
+
+  // If asking a CRM-specific question but no active portal is selected, reject immediately
+  const isCrmSpecific =
+    queryLower.includes('how many') ||
+    queryLower.includes('my ') ||
+    queryLower.includes('our ') ||
+    queryLower.includes('contact') ||
+    queryLower.includes('deal') ||
+    queryLower.includes('pipeline') ||
+    queryLower.includes('company') ||
+    queryLower.includes('companies') ||
+    queryLower.includes('audit') ||
+    queryLower.includes('workflow');
+
+  if (isCrmSpecific && !portalId) {
+    return {
+      ...state,
+      responseMarkdown: `### ⚠️ No HubSpot Account Selected\n\nPlease select or connect an authorized HubSpot account from the **Connected Portals** page. Anna can only analyze verified live CRM data from an authenticated connection.`,
+      suggestedPrompts: [
+        'What is the difference between contact lifecycle stage and lead status?',
+        'Explain HubSpot deal probability calculation.',
+      ],
+      tokensConsumed: 20,
     };
   }
 
@@ -576,6 +602,18 @@ Do NOT use markdown tables (|---|), conversational filler, or polite sign-offs.`
         // Fallback to deterministic query engine
       }
     }
+  }
+
+  if (!portalId) {
+    return {
+      ...state,
+      responseMarkdown: `### ⚠️ No HubSpot Account Selected\n\nPlease select or connect an authorized HubSpot account from the **Connected Portals** page. Anna can only analyze verified live CRM data from an authenticated connection.`,
+      suggestedPrompts: [
+        'What is the difference between contact lifecycle stage and lead status?',
+        'Explain HubSpot deal probability calculation.',
+      ],
+      tokensConsumed: 20,
+    };
   }
 
   // Dispatch to real CRM live data service

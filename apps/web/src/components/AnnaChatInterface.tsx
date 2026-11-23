@@ -348,7 +348,13 @@ export const AnnaChatInterface: React.FC<AnnaChatInterfaceProps> = ({
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                     <span className="text-gray-300 font-medium">Live CRM Source:</span>
-                    <span className="truncate text-gray-400">HubSpot Portal #{activePortalId} ({activePortalName})</span>
+                    <span className="truncate text-gray-400">
+                      {activePortalId
+                        ? activePortalName && !activePortalName.includes(activePortalId)
+                          ? `HubSpot Portal #${activePortalId} (${activePortalName})`
+                          : `HubSpot Portal #${activePortalId}`
+                        : 'No Active Connection'}
+                    </span>
                   </div>
                   {msg.citations[0]?.url && (
                     <a

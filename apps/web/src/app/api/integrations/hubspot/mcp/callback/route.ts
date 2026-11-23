@@ -91,24 +91,18 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenRes.json();
 
-    // 4. Discover Connected Portal ID and User Identity
-    let hubId = '46100478';
-    let portalName = `HubSpot Account #${hubId}`;
-    let userEmail = 'div@huboexperts.com';
-    let scopes: string[] = [];
-
+    // 4. Discover Connected Portal ID and User Identity from Token Introspection
     const tokenInfoRes = await fetch(
       `https://api.hubapi.com/oauth/v1/access-tokens/${tokens.access_token}`
     );
-    if (tokenInfoRes.ok) {
-      const info = await tokenInfoRes.json();
-      hubId = String(info.hub_id || hubId);
-      userEmail = info.user || userEmail;
-      scopes = info.scopes || [];
-      if (info.hub_name) {
-        portalName = info.hub_name;
-      }
+    if (!tokenInfoRes.ok) {
+      throw new Error('FAILED_TOKEN_INTROSPECTION: Could not verify token hub ID with HubSpot.');
     }
+    const info = await tokenInfoRes.json();
+    const hubId = String(info.hub_id);
+    const userEmail = info.user || 'Authorized User';
+    const scopes: string[] = info.scopes || [];
+    let portalName = info.hub_name || `HubSpot Account #${hubId}`;
 
     // Try retrieving official account name from account details
     try {

@@ -448,23 +448,23 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-white truncate">
-                    {activeConnection?.portalName || (isLoading ? 'Loading connections...' : 'No Account Selected')}
+                    {activeConnection?.portalName || (selectedPortalId ? `HubSpot Account #${selectedPortalId}` : (isLoading ? 'Loading connections...' : 'No Account Selected'))}
                   </div>
                   <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
                     <span>Portal ID: {selectedPortalId || '—'}</span>
-                    {activeConnection && (
+                    {(activeConnection || selectedPortalId) && (
                       <span
                         className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-medium ${
-                          activeConnection.status === 'CONNECTED'
+                          activeConnection?.status === 'CONNECTED' || (!activeConnection && unifiedMetrics !== null)
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : activeConnection.status === 'NEEDS_REAUTH'
+                            : activeConnection?.status === 'NEEDS_REAUTH'
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             : 'bg-red-500/10 text-red-400 border border-red-500/20'
                         }`}
                       >
-                        {activeConnection.status === 'CONNECTED'
+                        {activeConnection?.status === 'CONNECTED' || (!activeConnection && unifiedMetrics !== null)
                           ? 'CONNECTED'
-                          : activeConnection.status === 'NEEDS_REAUTH'
+                          : activeConnection?.status === 'NEEDS_REAUTH'
                           ? 'NEEDS REAUTH'
                           : 'DISCONNECTED'}
                       </span>
@@ -646,7 +646,7 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* 1. Total Contacts */}
-          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md">
+          <div className="bg-[#0F1626] border border-white/10 rounded-xl p-4 shadow-md group relative">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-xs font-medium">Total Contacts</span>
               <Users className="w-4 h-4 text-blue-400" />
@@ -662,8 +662,12 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">
-              {unifiedMetrics?.contacts?.status === 'verified' ? 'Verified via API' : 'HubSpot /contacts'}
+            <div className="text-[11px] text-slate-400 mt-1 truncate" title={unifiedMetrics?.contacts?.notes || ''}>
+              {unifiedMetrics?.contacts?.status === 'verified'
+                ? unifiedMetrics.contacts.unassigned != null
+                  ? `${unifiedMetrics.contacts.unassigned.toLocaleString()} unassigned`
+                  : 'Portal-Wide'
+                : 'HubSpot /contacts'}
             </div>
           </div>
 
@@ -706,8 +710,12 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">
-              {unifiedMetrics?.deals?.status === 'verified' ? 'All Pipelines' : 'HubSpot /deals'}
+            <div className="text-[11px] text-slate-400 mt-1 truncate">
+              {unifiedMetrics?.deals?.status === 'verified'
+                ? unifiedMetrics.deals.closedWonCount != null
+                  ? `${unifiedMetrics.deals.closedWonCount} Won / ${unifiedMetrics.deals.closedLostCount ?? 0} Lost`
+                  : 'All Pipelines'
+                : 'HubSpot /deals'}
             </div>
           </div>
 
@@ -723,7 +731,7 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
               ) : unifiedMetrics?.deals?.status === 'verified' ? (
                 unifiedMetrics.deals.openCount != null
                   ? unifiedMetrics.deals.openCount.toLocaleString()
-                  : unifiedMetrics.deals.total?.toLocaleString() ?? '0'
+                  : '0'
               ) : (
                 <span className="text-xs text-amber-400 font-normal">
                   {unifiedMetrics?.deals?.status === 'unavailable' ? 'Unavailable' : 'Needs Reauth'}
@@ -733,7 +741,7 @@ export const PortalStatusCard: React.FC<PortalStatusCardProps> = ({
             <div className="text-[11px] text-slate-400 mt-1 truncate">
               {unifiedMetrics?.deals?.formattedPipelineValue
                 ? `${unifiedMetrics.deals.formattedPipelineValue} Pipeline`
-                : 'Pipeline Value'}
+                : 'Active pipeline stages'}
             </div>
           </div>
 

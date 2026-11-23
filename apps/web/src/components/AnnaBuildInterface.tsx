@@ -59,8 +59,8 @@ export const AnnaBuildInterface: React.FC<AnnaBuildInterfaceProps> = ({
   portalId,
   portalName,
 }) => {
-  const activePortalId = portalId || DEMO_HUBSPOT_CONNECTION.portalId;
-  const activePortalName = portalName || DEMO_HUBSPOT_CONNECTION.portalName;
+  const activePortalId = portalId || '';
+  const activePortalName = portalName || (activePortalId ? `Portal #${activePortalId}` : 'No Portal Connected');
   const schema = getPortalSchemaRegistry(activePortalId);
   const architect = React.useMemo(() => new HuboVerseBuildModeArchitect(), []);
 

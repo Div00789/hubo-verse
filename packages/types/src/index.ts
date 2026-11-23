@@ -677,29 +677,46 @@ export interface UnifiedPortalMetrics {
   contacts: {
     total: number | null;
     unassigned: number | null;
+    myContacts?: number | null;
     status: MetricVerificationStatus;
     notes?: string;
+    verifiedAt?: string;
+    source?: string;
+    definition?: string;
   };
   companies: {
     total: number | null;
     status: MetricVerificationStatus;
+    verifiedAt?: string;
+    source?: string;
+    definition?: string;
   };
   deals: {
     total: number | null;
     openCount: number | null;
+    closedWonCount?: number | null;
+    closedLostCount?: number | null;
     totalPipelineValue: number | null;
     formattedPipelineValue: string;
     status: MetricVerificationStatus;
+    verifiedAt?: string;
+    source?: string;
+    definition?: string;
   };
   dealPipelines?: {
     total: number | null;
     totalStages?: number | null;
     status: MetricVerificationStatus;
+    verifiedAt?: string;
+    source?: string;
+    definition?: string;
   };
   owners: {
     total: number | null;
     status: MetricVerificationStatus;
     list?: Array<{ id: string; name: string; email: string }>;
+    verifiedAt?: string;
+    source?: string;
   };
   workflows: {
     total: number | null;
@@ -707,10 +724,14 @@ export interface UnifiedPortalMetrics {
     inactive: number | null;
     status: MetricVerificationStatus;
     reason?: string;
+    verifiedAt?: string;
+    source?: string;
   };
   tickets: {
     total: number | null;
     status: MetricVerificationStatus;
+    verifiedAt?: string;
+    source?: string;
   };
   lastSyncedAt: string;
 }
