@@ -16,11 +16,14 @@ build/
 # Supabase
 .supabase/
 
-# Environment
+# Environment & Local Storage
 .env
 .env.local
 .env.production
 .env*.local
+*.huboverse_connections.json
+.huboverse_connections.json
+*.tsbuildinfo
 
 # OS
 .DS_Store
